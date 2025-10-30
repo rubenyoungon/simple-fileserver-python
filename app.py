@@ -1,5 +1,6 @@
 from flask import Flask, request, send_from_directory, render_template, redirect, url_for
 import os
+import uuid
 
 app = Flask(__name__)
 UPLOAD_FOLDER = './uploads'
@@ -10,7 +11,11 @@ def upload():
     if request.method == "POST":
         file = request.files.get('file')
         if file:
-            file.save(os.path.join(UPLOAD_FOLDER, file.filename))
+            # Generate unique filename with original name
+            original_filename = file.filename
+            name, extension = os.path.splitext(original_filename)
+            unique_filename = f"{name}_{uuid.uuid4().hex}{extension}"
+            file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
         return redirect(url_for('upload'))
     files = os.listdir(UPLOAD_FOLDER)
     return render_template("index.html", files=files)
