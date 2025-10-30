@@ -18,14 +18,18 @@
   <ul>
     {% for f in files %}
       <li>
-        <div class="file-header">
-          <a href="/files/{{ f }}">{{ f }}</a>
-          <a href="/files/{{ f }}" download class="download-btn">⬇️ Download</a>
-          <button class="delete-btn" onclick="deleteFile('{{ f }}')">🗑️ Delete</button>
+        <div class="file-item">
+          <div class="file-name">
+            <a href="/files/{{ f }}">{{ f }}</a>
+          </div>
+          {% if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) %}
+            <img src="/files/{{ f }}" alt="{{ f }}">
+          {% endif %}
+          <div class="file-actions">
+            <a href="/files/{{ f }}" download class="download-btn">⬇️ Download</a>
+            <button class="delete-btn" onclick="deleteFile('{{ f }}')">🗑️ Delete</button>
+          </div>
         </div>
-        {% if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) %}
-          <img src="/files/{{ f }}" alt="{{ f }}">
-        {% endif %}
       </li>
     {% endfor %}
   </ul>
