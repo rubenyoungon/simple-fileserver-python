@@ -1,0 +1,139 @@
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f7f9fb;
+  color: #333;
+  margin: 0;
+  padding: 20px;
+  text-align: center;
+}
+
+h2 {
+  color: #0078D7;
+}
+
+form {
+  background: #fff;
+  padding: 15px;
+  margin: 20px auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  display: inline-block;
+}
+
+input[type="file"] {
+  margin: 10px 0;
+}
+
+.drop-zone {
+  border: 2px dashed #0078D7;
+  border-radius: 8px;
+  padding: 40px;
+  margin: 10px 0;
+  transition: background-color 0.3s;
+  cursor: pointer;
+}
+
+.drop-zone.dragover {
+  background-color: #e3f2fd;
+  border-color: #005fa3;
+}
+
+.drop-zone-text {
+  color: #666;
+  font-size: 16px;
+}
+
+input[type="submit"] {
+  background: #0078D7;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+input[type="submit"]:hover {
+  background: #005fa3;
+}
+
+input[type="submit"]:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+}
+
+input[type="submit"]:disabled:hover {
+  background: #cccccc;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+li {
+  background: #fff;
+  margin: 10px 0;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+img {
+  max-width: 300px;
+  max-height: 300px;
+  border-radius: 6px;
+  margin-top: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+a {
+  color: #0078D7;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-left: 10px;
+  font-size: 14px;
+}
+
+.delete-btn:hover {
+  background: #c82333;
+}
+
+.download-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-left: 10px;
+  font-size: 14px;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.download-btn:hover {
+  background: #218838;
+}
+
+.file-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
