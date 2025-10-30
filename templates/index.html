@@ -12,7 +12,7 @@
   <h2>📁 File Upload & Image Preview</h2>
   <form method="POST" enctype="multipart/form-data" id="uploadForm">
     <div class="drop-zone" id="dropZone">
-      <p class="drop-zone-text">📎 Drag & drop a file here or click to browse</p>
+      <p class="drop-zone-text">📎 Drag & drop, paste (Ctrl+V), or click to browse</p>
       <input type="file" name="file" id="fileInput" style="display: none;">
     </div>
     <input type="submit" value="Upload" id="uploadBtn" disabled>
@@ -38,7 +38,7 @@
     {% endfor %}
   </ul>
 
-  <script>
+    <script>
     const fileInput = document.getElementById('fileInput');
     const uploadBtn = document.getElementById('uploadBtn');
     const dropZone = document.getElementById('dropZone');
@@ -74,12 +74,47 @@
       e.preventDefault();
       e.stopPropagation();
       this.classList.remove('dragover');
-      
+
       const files = e.dataTransfer.files;
       if (files.length) {
         fileInput.files = files;
         uploadBtn.disabled = false;
         dropZoneText.textContent = '✅ ' + files[0].name;
+      }
+    });
+
+    // Paste handler for images
+    document.addEventListener('paste', function(e) {
+      const items = e.clipboardData.items;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          e.preventDefault();
+
+          const blob = items[i].getAsFile();
+          const timestamp = new Date().getTime();
+          const fileName = `pasted-image-${timestamp}.png`;
+
+          // Create a new File object with a proper name
+          const file = new File([blob], fileName, { type: blob.type });
+
+          // Create a DataTransfer object to set the file input
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          fileInput.files = dataTransfer.files;
+
+          // Update UI
+          uploadBtn.disabled = false;
+          dropZoneText.textContent = '✅ ' + fileName;
+
+          // Focus on the drop zone to give visual feedback
+          dropZone.style.backgroundColor = '#e3f2fd';
+          setTimeout(() => {
+            dropZone.style.backgroundColor = '';
+          }, 500);
+
+          break;
+        }
       }
     });
 
