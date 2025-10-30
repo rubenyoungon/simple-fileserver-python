@@ -25,6 +25,22 @@
     input[type="file"] {
       margin: 10px 0;
     }
+    .drop-zone {
+      border: 2px dashed #0078D7;
+      border-radius: 8px;
+      padding: 40px;
+      margin: 10px 0;
+      transition: background-color 0.3s;
+      cursor: pointer;
+    }
+    .drop-zone.dragover {
+      background-color: #e3f2fd;
+      border-color: #005fa3;
+    }
+    .drop-zone-text {
+      color: #666;
+      font-size: 16px;
+    }
     input[type="submit"] {
       background: #0078D7;
       color: white;
@@ -110,8 +126,11 @@
 </head>
 <body>
   <h2>📁 File Upload & Image Preview</h2>
-  <form method="POST" enctype="multipart/form-data">
-    <input type="file" name="file" id="fileInput"><br>
+  <form method="POST" enctype="multipart/form-data" id="uploadForm">
+    <div class="drop-zone" id="dropZone">
+      <p class="drop-zone-text">📎 Drag & drop a file here or click to browse</p>
+      <input type="file" name="file" id="fileInput" style="display: none;">
+    </div>
     <input type="submit" value="Upload" id="uploadBtn" disabled>
   </form>
   <hr>
@@ -134,9 +153,46 @@
   <script>
     const fileInput = document.getElementById('fileInput');
     const uploadBtn = document.getElementById('uploadBtn');
+    const dropZone = document.getElementById('dropZone');
+    const dropZoneText = dropZone.querySelector('.drop-zone-text');
 
+    // Enable/disable upload button
     fileInput.addEventListener('change', function() {
       uploadBtn.disabled = !this.files.length;
+      if (this.files.length) {
+        dropZoneText.textContent = '✅ ' + this.files[0].name;
+      }
+    });
+
+    // Click to browse
+    dropZone.addEventListener('click', function() {
+      fileInput.click();
+    });
+
+    // Drag and drop handlers
+    dropZone.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.classList.remove('dragover');
+      
+      const files = e.dataTransfer.files;
+      if (files.length) {
+        fileInput.files = files;
+        uploadBtn.disabled = false;
+        dropZoneText.textContent = '✅ ' + files[0].name;
+      }
     });
 
     function deleteFile(filename) {
