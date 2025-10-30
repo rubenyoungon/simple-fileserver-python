@@ -78,6 +78,21 @@
     .delete-btn:hover {
       background: #c82333;
     }
+    .download-btn {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-left: 10px;
+      font-size: 14px;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .download-btn:hover {
+      background: #218838;
+    }
     .file-header {
       display: flex;
       align-items: center;
@@ -99,6 +114,7 @@
       <li>
         <div class="file-header">
           <a href="/files/{{ f }}">{{ f }}</a>
+          <a href="/files/{{ f }}" download class="download-btn">⬇️ Download</a>
           <button class="delete-btn" onclick="deleteFile('{{ f }}')">🗑️ Delete</button>
         </div>
         {% if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) %}
