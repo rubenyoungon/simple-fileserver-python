@@ -36,6 +36,13 @@
     input[type="submit"]:hover {
       background: #005fa3;
     }
+    input[type="submit"]:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+    }
+    input[type="submit"]:disabled:hover {
+      background: #cccccc;
+    }
     ul {
       list-style-type: none;
       padding: 0;
@@ -104,8 +111,8 @@
 <body>
   <h2>📁 File Upload & Image Preview</h2>
   <form method="POST" enctype="multipart/form-data">
-    <input type="file" name="file"><br>
-    <input type="submit" value="Upload">
+    <input type="file" name="file" id="fileInput"><br>
+    <input type="submit" value="Upload" id="uploadBtn" disabled>
   </form>
   <hr>
   <h3>Uploaded Files</h3>
@@ -125,6 +132,13 @@
   </ul>
 
   <script>
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+
+    fileInput.addEventListener('change', function() {
+      uploadBtn.disabled = !this.files.length;
+    });
+
     function deleteFile(filename) {
       if (confirm('Are you sure you want to delete ' + filename + '?')) {
         fetch('/delete/' + encodeURIComponent(filename), {
