@@ -7,6 +7,18 @@ body {
   text-align: center;
 }
 
+.disk-space-info {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: #fff;
+  padding: 10px 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  font-size: 14px;
+  z-index: 1000;
+}
+
 h2 {
   color: #0078D7;
 }
