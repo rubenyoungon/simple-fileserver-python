@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Raspberry Pi File Upload</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f7f9fb;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+    h2 {
+      color: #0078D7;
+    }
+    form {
+      background: #fff;
+      padding: 15px;
+      margin: 20px auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      display: inline-block;
+    }
+    input[type="file"] {
+      margin: 10px 0;
+    }
+    input[type="submit"] {
+      background: #0078D7;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    input[type="submit"]:hover {
+      background: #005fa3;
+    }
+    ul {
+      list-style-type: none;
+      padding: 0;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    li {
+      background: #fff;
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    img {
+      max-width: 300px;
+      max-height: 300px;
+      border-radius: 6px;
+      margin-top: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    a {
+      color: #0078D7;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .delete-btn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-left: 10px;
+      font-size: 14px;
+    }
+    .delete-btn:hover {
+      background: #c82333;
+    }
+    .file-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>📁 File Upload & Image Preview</h2>
+  <form method="POST" enctype="multipart/form-data">
+    <input type="file" name="file"><br>
+    <input type="submit" value="Upload">
+  </form>
+  <hr>
+  <h3>Uploaded Files</h3>
+  <ul>
+    {% for f in files %}
+      <li>
+        <div class="file-header">
+          <a href="/files/{{ f }}">{{ f }}</a>
+          <button class="delete-btn" onclick="deleteFile('{{ f }}')">🗑️ Delete</button>
+        </div>
+        {% if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) %}
+          <img src="/files/{{ f }}" alt="{{ f }}">
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+
+  <script>
+    function deleteFile(filename) {
+      if (confirm('Are you sure you want to delete ' + filename + '?')) {
+        fetch('/delete/' + encodeURIComponent(filename), {
+          method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            location.reload();
+          } else {
+            alert('Failed to delete: ' + (data.error || 'Unknown error'));
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Failed to delete file');
+        });
+      }
+    }
+  </script>
+</body>
+</html>
