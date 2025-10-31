@@ -53,8 +53,14 @@ def upload():
             unique_filename = f"{name}_{uuid.uuid4().hex}{extension}"
             file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
         return redirect(url_for('upload'))
+    
+    # Get files and sort by modification time (newest first)
     files = os.listdir(UPLOAD_FOLDER)
-    return render_template("index.html", files=files, disk_space=disk_space_info)
+    files_with_time = [(f, os.path.getmtime(os.path.join(UPLOAD_FOLDER, f))) for f in files]
+    files_with_time.sort(key=lambda x: x[1], reverse=True)
+    sorted_files = [f[0] for f in files_with_time]
+    
+    return render_template("index.html", files=sorted_files, disk_space=disk_space_info)
 
 @app.route("/api/disk-space")
 def get_disk_space():
