@@ -39,9 +39,34 @@ def update_disk_space():
             print(f"Error updating disk space: {e}")
         time.sleep(DISK_SPACE_UPDATE_INTERVAL)
 
+
 # Start the background thread
 disk_space_thread = threading.Thread(target=update_disk_space, daemon=True)
 disk_space_thread.start()
+
+
+def get_sorted_files_by_mtime(upload_dir: str) -> list[str]:
+    files = os.listdir(upload_dir)
+    files_with_time = [(f, os.path.getmtime(os.path.join(upload_dir, f))) for f in files]
+    files_with_time.sort(key=lambda x: x[1], reverse=True)
+    return [f[0] for f in files_with_time]
+
+
+def get_available_filename(upload_dir: str, original_filename: str) -> str:
+    name, extension = os.path.splitext(original_filename)
+    target_filename = original_filename
+    counter = 1
+    while os.path.exists(os.path.join(upload_dir, target_filename)):
+        target_filename = f"{name}-{counter}{extension}"
+        counter += 1
+    return target_filename
+
+
+def save_uploaded_file(upload_dir: str, file) -> str:
+    """Saves the werkzeug FileStorage to disk using collision-safe name. Returns final filename."""
+    target_filename = get_available_filename(upload_dir, file.filename)
+    file.save(os.path.join(upload_dir, target_filename))
+    return target_filename
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -49,27 +74,11 @@ def upload():
     if request.method == "POST":
         file = request.files.get('file')
         if file:
-            original_filename = file.filename
-            name, extension = os.path.splitext(original_filename)
-            
-            # Check if file already exists and find next available suffix
-            target_filename = original_filename
-            counter = 1
-            while os.path.exists(os.path.join(UPLOAD_FOLDER, target_filename)):
-                target_filename = f"{name}-{counter}{extension}"
-                counter += 1
-            
-            file.save(os.path.join(UPLOAD_FOLDER, target_filename))
+            save_uploaded_file(UPLOAD_FOLDER, file)
         return redirect(url_for('upload'))
 
-    # Get files and sort by modification time (newest first)
-    files = os.listdir(UPLOAD_FOLDER)
-    files_with_time = [(f, os.path.getmtime(os.path.join(UPLOAD_FOLDER, f))) for f in files]
-    files_with_time.sort(key=lambda x: x[1], reverse=True)
-    sorted_files = [f[0] for f in files_with_time]
-
+    sorted_files = get_sorted_files_by_mtime(UPLOAD_FOLDER)
     file_count = len(sorted_files)
-
     return render_template("index.html", files=sorted_files, file_count=file_count, disk_space=disk_space_info)
 
 
