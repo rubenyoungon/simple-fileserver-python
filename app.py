@@ -1,6 +1,5 @@
 from flask import Flask, request, send_from_directory, render_template, redirect, url_for, jsonify
 import os
-import uuid
 import shutil
 import threading
 import time
@@ -15,6 +14,7 @@ disk_space_info = {"free": "Calculating...", "total": "Calculating...", "percent
 # Configuration for update interval (in seconds)
 DISK_SPACE_UPDATE_INTERVAL = 60  # Update every 60 seconds - customize this as needed
 
+
 def format_bytes(bytes):
     """Convert bytes to human readable format"""
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
@@ -22,6 +22,7 @@ def format_bytes(bytes):
             return f"{bytes:.2f} {unit}"
         bytes /= 1024.0
     return f"{bytes:.2f} TB"
+
 
 def update_disk_space():
     """Background task to update disk space information"""
@@ -42,34 +43,44 @@ def update_disk_space():
 disk_space_thread = threading.Thread(target=update_disk_space, daemon=True)
 disk_space_thread.start()
 
+
 @app.route("/", methods=["GET", "POST"])
 def upload():
     if request.method == "POST":
         file = request.files.get('file')
         if file:
-            # Generate unique filename with original name
             original_filename = file.filename
             name, extension = os.path.splitext(original_filename)
-            unique_filename = f"{name}_{uuid.uuid4().hex}{extension}"
-            file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
+            
+            # Check if file already exists and find next available suffix
+            target_filename = original_filename
+            counter = 1
+            while os.path.exists(os.path.join(UPLOAD_FOLDER, target_filename)):
+                target_filename = f"{name}-{counter}{extension}"
+                counter += 1
+            
+            file.save(os.path.join(UPLOAD_FOLDER, target_filename))
         return redirect(url_for('upload'))
-    
+
     # Get files and sort by modification time (newest first)
     files = os.listdir(UPLOAD_FOLDER)
     files_with_time = [(f, os.path.getmtime(os.path.join(UPLOAD_FOLDER, f))) for f in files]
     files_with_time.sort(key=lambda x: x[1], reverse=True)
     sorted_files = [f[0] for f in files_with_time]
-    
+
     return render_template("index.html", files=sorted_files, disk_space=disk_space_info)
+
 
 @app.route("/api/disk-space")
 def get_disk_space():
     """API endpoint to get current disk space"""
     return jsonify(disk_space_info)
 
+
 @app.route("/files/<filename>")
 def files(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
+
 
 @app.route("/delete/<filename>", methods=["POST"])
 def delete_file(filename):
@@ -83,6 +94,7 @@ def delete_file(filename):
         return {"success": False, "error": "File not found"}, 404
     except Exception as e:
         return {"success": False, "error": str(e)}, 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
