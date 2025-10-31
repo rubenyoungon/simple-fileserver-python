@@ -18,7 +18,7 @@
     <input type="submit" value="Upload" id="uploadBtn" disabled>
   </form>
   <hr>
-  <h3>Uploaded Files</h3>
+  <h3>Uploaded Files <span style="font-weight: normal;">({{ file_count }} files)</span></h3>
   <ul>
     {% for f in files %}
       <li>

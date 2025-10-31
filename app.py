@@ -68,7 +68,9 @@ def upload():
     files_with_time.sort(key=lambda x: x[1], reverse=True)
     sorted_files = [f[0] for f in files_with_time]
 
-    return render_template("index.html", files=sorted_files, disk_space=disk_space_info)
+    file_count = len(sorted_files)
+
+    return render_template("index.html", files=sorted_files, file_count=file_count, disk_space=disk_space_info)
 
 
 @app.route("/api/disk-space")
