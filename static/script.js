@@ -2,6 +2,7 @@ const fileInput = document.getElementById('fileInput');
 const uploadBtn = document.getElementById('uploadBtn');
 const dropZone = document.getElementById('dropZone');
 const dropZoneText = dropZone.querySelector('.drop-zone-text');
+const uploadForm = document.getElementById('uploadForm');
 
 // Enable/disable upload button
 fileInput.addEventListener('change', function() {
@@ -79,9 +80,22 @@ document.addEventListener('paste', function(e) {
 
 // Enter key to submit
 document.addEventListener('keydown', function(e) {
+  // Check for Enter key and not in a text input/textarea
   if (e.key === 'Enter' && !uploadBtn.disabled) {
+    const activeElement = document.activeElement;
+    // Only submit if we're not in an input field
+    if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      uploadForm.submit();
+    }
+  }
+});
+
+// Alternative: Listen for Enter on the upload button itself
+uploadBtn.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !this.disabled) {
     e.preventDefault();
-    document.getElementById('uploadForm').submit();
+    uploadForm.submit();
   }
 });
 
