@@ -1,43 +1,48 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Raspberry Pi File Upload</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-  <div class="disk-space-info">
-    💾 Free: <span id="freeSpace">{{ disk_space.free }}</span> / {{ disk_space.total }}
-  </div>
-
-  <h2>📁 File Upload & Image Preview</h2>
-  <form method="POST" enctype="multipart/form-data" id="uploadForm">
-    <div class="drop-zone" id="dropZone">
-      <p class="drop-zone-text">📎 Drag & drop, paste (Ctrl+V), or click to browse</p>
-      <input type="file" name="file" id="fileInput" style="display: none;">
-    </div>
-    <input type="submit" value="Upload" id="uploadBtn" disabled>
-  </form>
-  <hr>
-  <h3>Uploaded Files <span style="font-weight: normal;">({{ file_count }} files)</span></h3>
-  <ul>
-    {% for f in files %}
-      <li>
-        <div class="file-item">
-          <div class="file-name">
-            <a href="/files/{{ f }}">{{ f }}</a>
-          </div>
-          {% if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) %}
-            <img src="/files/{{ f }}" alt="{{ f }}">
-          {% endif %}
-          <div class="file-actions">
-            <a href="/files/{{ f }}" download class="download-btn">⬇️ Download</a>
-            <button class="delete-btn" onclick="deleteFile('{{ f }}')">🗑️ Delete</button>
-          </div>
+    <head>
+      <title>Raspberry Pi File Upload</title>
+      <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    </head>
+    <body>
+        <div class="disk-space-info">
+        💾 Free: <span id="freeSpace">{{ disk_space.free }}</span> / {{ disk_space.total }}
         </div>
-      </li>
-    {% endfor %}
-  </ul>
 
-  <script src="{{ url_for('static', filename='script.js') }}"></script>
-</body>
+        <h2>📁 File Upload & Image Preview</h2>
+        <form method="POST" enctype="multipart/form-data" id="uploadForm">
+        <div class="drop-zone" id="dropZone">
+            <p class="drop-zone-text">📎 Drag & drop, paste (Ctrl+V), or click to browse</p>
+            <input type="file" name="file" id="fileInput" style="display: none;">
+        </div>
+        <input type="submit" value="Upload" id="uploadBtn" disabled>
+        </form>
+
+        <hr>
+
+        <h3>Uploaded Files <span style="font-weight: normal;">({{ file_count }} files)</span></h3>
+        <div class="file-actions" style="margin: 8px 0;">
+        <button class="delete-btn" onclick="deleteAllFiles()" {% if file_count == 0 %}disabled{% endif %}>🗑️ Delete All</button>
+        </div>
+        <ul>
+        {% for f in files %}
+          <li>
+            <div class="file-item">
+              <div class="file-name">
+                <a href="/files/{{ f }}">{{ f }}</a>
+              </div>
+              {% if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) %}
+                <img src="/files/{{ f }}" alt="{{ f }}">
+              {% endif %}
+              <div class="file-actions">
+                <a href="/files/{{ f }}" download class="download-btn">⬇️ Download</a>
+                <button class="delete-btn" onclick="deleteFile('{{ f }}')">🗑️ Delete</button>
+              </div>
+            </div>
+          </li>
+        {% endfor %}
+        </ul>
+
+        <script src="{{ url_for('static', filename='script.js') }}"></script>
+    </body>
 </html>

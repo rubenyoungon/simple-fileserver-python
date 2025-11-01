@@ -107,5 +107,19 @@ def delete_file(filename):
         return {"success": False, "error": str(e)}, 500
 
 
+@app.route("/delete-all", methods=["POST"])
+def delete_all_files():
+    try:
+        deleted = 0
+        for entry in os.listdir(UPLOAD_FOLDER):
+            path = os.path.join(UPLOAD_FOLDER, entry)
+            if os.path.isfile(path):
+                os.remove(path)
+                deleted += 1
+        return {"success": True, "deleted": deleted}, 200
+    except Exception as e:
+        return {"success": False, "error": str(e)}, 500
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)

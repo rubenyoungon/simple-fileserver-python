@@ -118,3 +118,21 @@ function deleteFile(filename) {
     });
   }
 }
+
+function deleteAllFiles() {
+  if (confirm('Are you sure you want to delete all files? This action cannot be undone.')) {
+    fetch('/delete-all', { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        } else {
+          alert('Failed to delete all: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(err => {
+        console.error('Error:', err);
+        alert('Failed to delete all files');
+      });
+  }
+}
