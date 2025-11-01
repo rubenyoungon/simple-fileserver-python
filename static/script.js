@@ -101,9 +101,7 @@ uploadBtn.addEventListener('keydown', function (e) {
 
 function deleteFile(filename) {
 	if (confirm('Are you sure you want to delete ' + filename + '?')) {
-		fetch('/delete/' + encodeURIComponent(filename), {
-			method: 'POST'
-		})
+		fetch('/delete/' + encodeURIComponent(filename), { method: 'POST' })
 			.then(response => response.json())
 			.then(data => {
 				if (data.success) {
