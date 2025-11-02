@@ -54,16 +54,16 @@ form {
 }
 
 input[type="submit"] {
-	background: #3a86ff;
-	color: #fff;
+	background: #265ab0;
+	color: #e2e2e2;
 	border: none;
 	padding: 8px 16px;
 	border-radius: 5px;
 	cursor: pointer;
 }
-
 input[type="submit"]:hover {
-	background: #2f6fd1;
+	background: #1f498f;
+	color: #d6d6d6;
 }
 
 input[type="submit"]:disabled {
@@ -143,23 +143,24 @@ a:hover {
 }
 
 .delete-btn {
-	background: #d9534f;
-	color: white;
+	background: #8a1f1c;
+	color: #dcdcdc;
 	border: none;
 	padding: 5px 12px;
 	border-radius: 5px;
 	cursor: pointer;
 	margin-left: 0;
 	font-size: 14px;
+	font-weight: 700;
 }
-
 .delete-btn:hover {
-	background: #c3413d;
+	background: #6e1917;
+	color: #cfcfcf;
 }
 
 .download-btn {
-	background: #28a745;
-	color: white;
+	background: #185f2a;
+	color: #dcdcdc;
 	border: none;
 	padding: 5px 12px;
 	border-radius: 5px;
@@ -169,9 +170,9 @@ a:hover {
 	text-decoration: none;
 	display: inline-block;
 }
-
 .download-btn:hover {
-	background: #1f8a38;
+	background: #134b21;
+	color: #cfcfcf;
 	text-decoration: none;
 }
 
