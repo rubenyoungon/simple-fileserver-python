@@ -34,7 +34,9 @@
 					<a href="/files/{{ f }}">{{ f }}</a>
 				</div>
 				{% if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) %}
-				<img src="/files/{{ f }}" alt="{{ f }}">
+				<a href="/files/{{ f }}">
+					<img src="/files/{{ f }}" alt="{{ f }}">
+				</a>
 				{% endif %}
 				<div class="file-actions">
 					<a href="/files/{{ f }}" download class="download-btn">⬇️ Download</a>
