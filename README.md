@@ -17,4 +17,3 @@ A lightweight file server application built with Python and Flask.
 - `templates/` - HTML templates
 - `static/` - Static assets (CSS, JS)
 - `uploads/` - Uploaded files directory
-- 
