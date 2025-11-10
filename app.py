@@ -3,6 +3,8 @@ import os
 import shutil
 import threading
 import time
+from datetime import datetime, timedelta
+from collections import defaultdict
 
 app = Flask(__name__)
 UPLOAD_FOLDER = './uploads'
@@ -45,11 +47,51 @@ disk_space_thread = threading.Thread(target=update_disk_space, daemon=True)
 disk_space_thread.start()
 
 
-def get_sorted_files_by_mtime(upload_dir: str) -> list[str]:
+def get_files_grouped_by_date(upload_dir: str) -> dict[str, list[dict]]:
+    """Get files grouped by their modification date"""
     files = os.listdir(upload_dir)
-    files_with_time = [(f, os.path.getmtime(os.path.join(upload_dir, f))) for f in files]
-    files_with_time.sort(key=lambda x: x[1], reverse=True)
-    return [f[0] for f in files_with_time]
+    files_with_info = []
+    
+    for filename in files:
+        file_path = os.path.join(upload_dir, filename)
+        if os.path.isfile(file_path):
+            mtime = os.path.getmtime(file_path)
+            mtime_datetime = datetime.fromtimestamp(mtime)
+            date_key = mtime_datetime.strftime('%Y-%m-%d')
+            
+            files_with_info.append({
+                'filename': filename,
+                'mtime': mtime,
+                'date_key': date_key,
+                'is_image': filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'))
+            })
+    
+    # Sort files within each date group by modification time (newest first)
+    files_with_info.sort(key=lambda x: x['mtime'], reverse=True)
+    
+    # Group by date
+    grouped_files = defaultdict(list)
+    for file_info in files_with_info:
+        grouped_files[file_info['date_key']].append(file_info)
+    
+    # Sort date groups (newest first)
+    sorted_dates = sorted(grouped_files.keys(), reverse=True)
+    
+    # Return ordered dictionary
+    return {date: grouped_files[date] for date in sorted_dates}
+
+def format_date_header(date_str: str) -> str:
+    """Format date string for display"""
+    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+    today = datetime.now().date()
+    file_date = date_obj.date()
+    
+    if file_date == today:
+        return "Today"
+    elif file_date == today - timedelta(days=1):
+        return "Yesterday"
+    else:
+        return date_obj.strftime('%A, %B %d, %Y')
 
 
 def get_available_filename(upload_dir: str, original_filename: str) -> str:
@@ -77,9 +119,10 @@ def upload():
             save_uploaded_file(UPLOAD_FOLDER, file)
         return redirect(url_for('upload'))
 
-    sorted_files = get_sorted_files_by_mtime(UPLOAD_FOLDER)
-    file_count = len(sorted_files)
-    return render_template("index.html", files=sorted_files, file_count=file_count, disk_space=disk_space_info)
+    grouped_files = get_files_grouped_by_date(UPLOAD_FOLDER)
+    file_count = sum(len(files) for files in grouped_files.values())
+    return render_template("index.html", grouped_files=grouped_files, file_count=file_count, 
+                         disk_space=disk_space_info, format_date_header=format_date_header)
 
 
 @app.route("/api/disk-space")

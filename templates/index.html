@@ -26,26 +26,36 @@
 	<div class="file-actions" style="margin: 8px 0;">
 		<button class="delete-btn" onclick="deleteAllFiles()" {% if file_count==0 %}disabled{% endif %}>🗑️ Delete All</button>
 	</div>
-	<ul>
-		{% for f in files %}
-		<li>
-			<div class="file-item">
-				<div class="file-name">
-					<a href="/files/{{ f }}">{{ f }}</a>
-				</div>
-				{% if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) %}
-                <a href="/files/{{ f }}" target="_blank" rel="noopener noreferrer">
-                    <img src="/files/{{ f }}" alt="{{ f }}">
-                </a>
-                {% endif %}
-				<div class="file-actions">
-					<a href="/files/{{ f }}" download class="download-btn">⬇️ Download</a>
-					<button class="delete-btn" onclick="deleteFile('{{ f }}')">🗑️ Delete</button>
-				</div>
-			</div>
-		</li>
+	
+	{% if grouped_files %}
+		{% for date_key, files in grouped_files.items() %}
+		<div class="date-group">
+			<h4 class="date-header">{{ format_date_header(date_key) }}</h4>
+			<ul>
+				{% for file_info in files %}
+				<li>
+					<div class="file-item">
+						<div class="file-name">
+							<a href="/files/{{ file_info.filename }}">{{ file_info.filename }}</a>
+						</div>
+						{% if file_info.is_image %}
+						<a href="/files/{{ file_info.filename }}" target="_blank" rel="noopener noreferrer">
+							<img src="/files/{{ file_info.filename }}" alt="{{ file_info.filename }}">
+						</a>
+						{% endif %}
+						<div class="file-actions">
+							<a href="/files/{{ file_info.filename }}" download class="download-btn">⬇️ Download</a>
+							<button class="delete-btn" onclick="deleteFile('{{ file_info.filename }}')">🗑️ Delete</button>
+						</div>
+					</div>
+				</li>
+				{% endfor %}
+			</ul>
+		</div>
 		{% endfor %}
-	</ul>
+	{% else %}
+		<p style="text-align: center; color: #b8c2cc; margin-top: 20px;">No files uploaded yet</p>
+	{% endif %}
 
 	<script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

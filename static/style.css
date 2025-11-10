@@ -184,3 +184,21 @@ a:hover {
 	justify-content: center;
 	gap: 10px;
 }
+
+.date-group {
+	margin-bottom: 30px;
+}
+
+.date-header {
+	color: #7cc4ff;
+	font-size: 18px;
+	font-weight: 600;
+	margin-bottom: 15px;
+	padding-bottom: 8px;
+	border-bottom: 2px solid #3a86ff;
+	text-align: left;
+}
+
+.date-group ul {
+	margin-top: 15px;
+}
