@@ -8,7 +8,11 @@ const uploadForm = document.getElementById('uploadForm');
 fileInput.addEventListener('change', function () {
 	uploadBtn.disabled = !this.files.length;
 	if (this.files.length) {
-		dropZoneText.textContent = '✅ ' + this.files[0].name;
+		if (this.files.length === 1) {
+			dropZoneText.textContent = '✅ ' + this.files[0].name;
+		} else {
+			dropZoneText.textContent = '✅ ' + this.files.length + ' files selected';
+		}
 	}
 });
 
@@ -39,7 +43,11 @@ dropZone.addEventListener('drop', function (e) {
 	if (files.length) {
 		fileInput.files = files;
 		uploadBtn.disabled = false;
-		dropZoneText.textContent = '✅ ' + files[0].name;
+		if (files.length === 1) {
+			dropZoneText.textContent = '✅ ' + files[0].name;
+		} else {
+			dropZoneText.textContent = '✅ ' + files.length + ' files selected';
+		}
 	}
 });
 

@@ -16,9 +16,10 @@ disk_space_thread = start_disk_space_monitoring(UPLOAD_FOLDER)
 @app.route("/", methods=["GET", "POST"])
 def upload():
     if request.method == "POST":
-        file = request.files.get('file')
-        if file:
-            save_uploaded_file(UPLOAD_FOLDER, file)
+        files = request.files.getlist('file')
+        for file in files:
+            if file:
+                save_uploaded_file(UPLOAD_FOLDER, file)
         return redirect(url_for('upload'))
 
     grouped_files = get_files_grouped_by_date(UPLOAD_FOLDER)
