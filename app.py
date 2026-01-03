@@ -1,5 +1,7 @@
 from flask import Flask, request, send_from_directory, render_template, redirect, url_for, jsonify
 import os
+import mimetypes
+
 from utils.utils import (
     get_files_grouped_by_date, format_date_header, save_uploaded_file,
     start_disk_space_monitoring, get_disk_space_info
@@ -36,7 +38,12 @@ def get_disk_space():
 
 @app.route("/files/<filename>")
 def files(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    """Serve files with proper headers for iOS compatibility"""
+    response = send_from_directory(UPLOAD_FOLDER, filename)
+    # Add headers to help iOS handle large images when saving to Photos
+    response.headers['Cache-Control'] = 'public, max-age=31536000'
+    response.headers['Accept-Ranges'] = 'bytes'
+    return response
 
 
 @app.route("/delete/<filename>", methods=["POST"])
