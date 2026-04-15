@@ -1,5 +1,6 @@
-from flask import Flask, request, send_from_directory, render_template, redirect, url_for, jsonify
+from flask import Flask, request, send_from_directory, render_template, redirect, url_for, jsonify, make_response
 import os
+from email.utils import formatdate
 
 from utils.utils import (
     get_files_grouped_by_date, format_date_header, save_uploaded_file,
@@ -53,11 +54,22 @@ def deletion_status():
 
 @app.route("/files/<filename>")
 def files(filename):
-    """Serve files with proper headers for iOS compatibility"""
-    response = send_from_directory(UPLOAD_FOLDER, filename)
-    # Add headers to help iOS handle large images when saving to Photos
-    response.headers['Cache-Control'] = 'public, max-age=31536000'
-    response.headers['Accept-Ranges'] = 'bytes'
+    """Serve files with headers that are friendlier for iOS/WebKit."""
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+
+    if not os.path.exists(file_path):
+        return {"success": False, "error": "File not found"}, 404
+
+    response = make_response(send_from_directory(UPLOAD_FOLDER, filename))
+
+    stat_result = os.stat(file_path)
+    response.headers["Content-Length"] = str(stat_result.st_size)
+    response.headers["Last-Modified"] = formatdate(stat_result.st_mtime, usegmt=True)
+    response.headers["ETag"] = f'"{stat_result.st_mtime_ns}-{stat_result.st_size}"'
+    response.headers["Accept-Ranges"] = "bytes"
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
+
     return response
 
 
