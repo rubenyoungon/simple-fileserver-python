@@ -1,10 +1,10 @@
 from flask import Flask, request, send_from_directory, render_template, redirect, url_for, jsonify
 import os
-import mimetypes
 
 from utils.utils import (
     get_files_grouped_by_date, format_date_header, save_uploaded_file,
-    start_disk_space_monitoring, get_disk_space_info
+    start_disk_space_monitoring, get_disk_space_info,
+    start_background_deletion, get_deletion_status
 )
 
 app = Flask(__name__)
@@ -45,6 +45,12 @@ def get_disk_space():
     return jsonify(get_disk_space_info())
 
 
+@app.route("/api/deletion-status")
+def deletion_status():
+    """API endpoint to get current deletion status"""
+    return jsonify(get_deletion_status())
+
+
 @app.route("/files/<filename>")
 def files(filename):
     """Serve files with proper headers for iOS compatibility"""
@@ -72,13 +78,8 @@ def delete_file(filename):
 @app.route("/delete-all", methods=["POST"])
 def delete_all_files():
     try:
-        deleted = 0
-        for entry in os.listdir(UPLOAD_FOLDER):
-            path = os.path.join(UPLOAD_FOLDER, entry)
-            if os.path.isfile(path):
-                os.remove(path)
-                deleted += 1
-        return {"success": True, "deleted": deleted}, 200
+        start_background_deletion(UPLOAD_FOLDER)
+        return {"success": True}, 202  # 202 Accepted
     except Exception as e:
         return {"success": False, "error": str(e)}, 500
 

@@ -185,18 +185,51 @@ function deleteFile(filename) {
 
 function deleteAllFiles() {
 	if (confirm('Are you sure you want to delete all files? This action cannot be undone.')) {
+		const deleteBtn = document.getElementById('deleteAllBtn');
+		deleteBtn.disabled = true;
+		deleteBtn.textContent = '⏳ Deleting...';
+
 		fetch('/delete-all', { method: 'POST' })
 			.then(r => r.json())
 			.then(data => {
 				if (data.success) {
-					refreshFileList();
+					pollDeletionStatus();
 				} else {
-					alert('Failed to delete all: ' + (data.error || 'Unknown error'));
+					alert('Failed to start deletion: ' + (data.error || 'Unknown error'));
+					deleteBtn.disabled = false;
+					deleteBtn.textContent = '🗑️ Delete All';
 				}
 			})
 			.catch(err => {
 				console.error('Error:', err);
 				alert('Failed to delete all files');
+				deleteBtn.disabled = false;
+				deleteBtn.textContent = '🗑️ Delete All';
 			});
 	}
+}
+
+function pollDeletionStatus() {
+	const deleteBtn = document.getElementById('deleteAllBtn');
+
+	fetch('/api/deletion-status')
+		.then(r => r.json())
+		.then(status => {
+			if (status.in_progress) {
+				const percent = status.total > 0 ? Math.round((status.deleted / status.total) * 100) : 0;
+				deleteBtn.textContent = `⏳ Deleting... (${percent}%)`;
+				setTimeout(pollDeletionStatus, 1000);
+			} else {
+				if (status.error) {
+					alert('Deletion encountered an error: ' + status.error);
+				}
+				refreshFileList();
+				deleteBtn.textContent = '🗑️ Delete All';
+				// Button will be disabled by refreshFileList if no files left
+			}
+		})
+		.catch(err => {
+			console.error('Status check error:', err);
+			setTimeout(pollDeletionStatus, 2000);
+		});
 }
