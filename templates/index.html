@@ -1,3 +1,4 @@
+{% if not partial %}
 <!DOCTYPE html>
 <html>
 
@@ -22,11 +23,14 @@
 
 	<hr>
 
-	<h3>Uploaded Files <span style="font-weight: normal;">({{ file_count }} files)</span></h3>
+	<div id="fileListWrapper">
+{% endif %}
+	<h3>Uploaded Files <span id="fileCountText" style="font-weight: normal;">({{ file_count }} files)</span></h3>
 	<div class="file-actions" style="margin: 8px 0;">
-		<button class="delete-btn" onclick="deleteAllFiles()" {% if file_count==0 %}disabled{% endif %}>🗑️ Delete All</button>
+		<button id="deleteAllBtn" class="delete-btn" onclick="deleteAllFiles()" {% if file_count==0 %}disabled{% endif %}>🗑️ Delete All</button>
 	</div>
 	
+	<div id="fileListContainer">
 	{% if grouped_files %}
 		{% for date_key, files in grouped_files.items() %}
 		<div class="date-group">
@@ -56,8 +60,12 @@
 	{% else %}
 		<p style="text-align: center; color: #b8c2cc; margin-top: 20px;">No files uploaded yet</p>
 	{% endif %}
+	</div>
+{% if not partial %}
+	</div>
 
 	<script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 
 </html>
+{% endif %}

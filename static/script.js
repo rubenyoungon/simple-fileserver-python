@@ -94,7 +94,7 @@ document.addEventListener('keydown', function (e) {
 		// Only submit if we're not in an input field
 		if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
 			e.preventDefault();
-			uploadForm.submit();
+			handleUpload();
 		}
 	}
 });
@@ -103,9 +103,67 @@ document.addEventListener('keydown', function (e) {
 uploadBtn.addEventListener('keydown', function (e) {
 	if (e.key === 'Enter' && !this.disabled) {
 		e.preventDefault();
-		uploadForm.submit();
+		handleUpload();
 	}
 });
+
+uploadForm.addEventListener('submit', function (e) {
+	e.preventDefault();
+	handleUpload();
+});
+
+function handleUpload() {
+	if (uploadBtn.disabled) return;
+
+	const formData = new FormData(uploadForm);
+	uploadBtn.disabled = true;
+	uploadBtn.value = 'Uploading...';
+
+	fetch('/', {
+		method: 'POST',
+		body: formData,
+		headers: {
+			'X-Requested-With': 'XMLHttpRequest'
+		}
+	})
+		.then(response => response.json())
+		.then(data => {
+			if (data.success) {
+				refreshFileList();
+				// Reset form
+				uploadForm.reset();
+				dropZoneText.textContent = '📎 Drag & drop, paste (Ctrl+V), or click to browse';
+				uploadBtn.value = 'Upload';
+			} else {
+				alert('Upload failed');
+				uploadBtn.disabled = false;
+				uploadBtn.value = 'Upload';
+			}
+		})
+		.catch(error => {
+			console.error('Error:', error);
+			alert('Upload failed');
+			uploadBtn.disabled = false;
+			uploadBtn.value = 'Upload';
+		});
+}
+
+function refreshFileList() {
+	fetch('/?partial=1')
+		.then(response => response.text())
+		.then(html => {
+			document.getElementById('fileListWrapper').innerHTML = html;
+			updateDiskSpace();
+		});
+}
+
+function updateDiskSpace() {
+	fetch('/api/disk-space')
+		.then(response => response.json())
+		.then(data => {
+			document.getElementById('freeSpace').textContent = data.free;
+		});
+}
 
 function deleteFile(filename) {
 	if (confirm('Are you sure you want to delete ' + filename + '?')) {
@@ -113,7 +171,7 @@ function deleteFile(filename) {
 			.then(response => response.json())
 			.then(data => {
 				if (data.success) {
-					location.reload();
+					refreshFileList();
 				} else {
 					alert('Failed to delete: ' + (data.error || 'Unknown error'));
 				}
@@ -131,7 +189,7 @@ function deleteAllFiles() {
 			.then(r => r.json())
 			.then(data => {
 				if (data.success) {
-					location.reload();
+					refreshFileList();
 				} else {
 					alert('Failed to delete all: ' + (data.error || 'Unknown error'));
 				}

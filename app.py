@@ -22,10 +22,19 @@ def upload():
         for file in files:
             if file:
                 save_uploaded_file(UPLOAD_FOLDER, file)
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({"success": True})
+
         return redirect(url_for('upload'))
 
     grouped_files = get_files_grouped_by_date(UPLOAD_FOLDER)
     file_count = sum(len(files) for files in grouped_files.values())
+    
+    if request.args.get('partial'):
+        return render_template("index.html", grouped_files=grouped_files, file_count=file_count, 
+                             disk_space=get_disk_space_info(), format_date_header=format_date_header, partial=True)
+
     return render_template("index.html", grouped_files=grouped_files, file_count=file_count, 
                          disk_space=get_disk_space_info(), format_date_header=format_date_header)
 
