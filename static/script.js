@@ -8,7 +8,11 @@ const uploadForm = document.getElementById('uploadForm');
 fileInput.addEventListener('change', function () {
 	uploadBtn.disabled = !this.files.length;
 	if (this.files.length) {
-		dropZoneText.textContent = '✅ ' + this.files[0].name;
+		if (this.files.length === 1) {
+			dropZoneText.textContent = '✅ ' + this.files[0].name;
+		} else {
+			dropZoneText.textContent = '✅ ' + this.files.length + ' files selected';
+		}
 	}
 });
 
@@ -39,7 +43,11 @@ dropZone.addEventListener('drop', function (e) {
 	if (files.length) {
 		fileInput.files = files;
 		uploadBtn.disabled = false;
-		dropZoneText.textContent = '✅ ' + files[0].name;
+		if (files.length === 1) {
+			dropZoneText.textContent = '✅ ' + files[0].name;
+		} else {
+			dropZoneText.textContent = '✅ ' + files.length + ' files selected';
+		}
 	}
 });
 
@@ -86,7 +94,7 @@ document.addEventListener('keydown', function (e) {
 		// Only submit if we're not in an input field
 		if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
 			e.preventDefault();
-			uploadForm.submit();
+			handleUpload();
 		}
 	}
 });
@@ -95,9 +103,67 @@ document.addEventListener('keydown', function (e) {
 uploadBtn.addEventListener('keydown', function (e) {
 	if (e.key === 'Enter' && !this.disabled) {
 		e.preventDefault();
-		uploadForm.submit();
+		handleUpload();
 	}
 });
+
+uploadForm.addEventListener('submit', function (e) {
+	e.preventDefault();
+	handleUpload();
+});
+
+function handleUpload() {
+	if (uploadBtn.disabled) return;
+
+	const formData = new FormData(uploadForm);
+	uploadBtn.disabled = true;
+	uploadBtn.value = 'Uploading...';
+
+	fetch('/', {
+		method: 'POST',
+		body: formData,
+		headers: {
+			'X-Requested-With': 'XMLHttpRequest'
+		}
+	})
+		.then(response => response.json())
+		.then(data => {
+			if (data.success) {
+				refreshFileList();
+				// Reset form
+				uploadForm.reset();
+				dropZoneText.textContent = '📎 Drag & drop, paste (Ctrl+V), or click to browse';
+				uploadBtn.value = 'Upload';
+			} else {
+				alert('Upload failed');
+				uploadBtn.disabled = false;
+				uploadBtn.value = 'Upload';
+			}
+		})
+		.catch(error => {
+			console.error('Error:', error);
+			alert('Upload failed');
+			uploadBtn.disabled = false;
+			uploadBtn.value = 'Upload';
+		});
+}
+
+function refreshFileList() {
+	fetch('/?partial=1')
+		.then(response => response.text())
+		.then(html => {
+			document.getElementById('fileListWrapper').innerHTML = html;
+			updateDiskSpace();
+		});
+}
+
+function updateDiskSpace() {
+	fetch('/api/disk-space')
+		.then(response => response.json())
+		.then(data => {
+			document.getElementById('freeSpace').textContent = data.free;
+		});
+}
 
 function deleteFile(filename) {
 	if (confirm('Are you sure you want to delete ' + filename + '?')) {
@@ -105,7 +171,7 @@ function deleteFile(filename) {
 			.then(response => response.json())
 			.then(data => {
 				if (data.success) {
-					location.reload();
+					refreshFileList();
 				} else {
 					alert('Failed to delete: ' + (data.error || 'Unknown error'));
 				}
@@ -119,18 +185,51 @@ function deleteFile(filename) {
 
 function deleteAllFiles() {
 	if (confirm('Are you sure you want to delete all files? This action cannot be undone.')) {
+		const deleteBtn = document.getElementById('deleteAllBtn');
+		deleteBtn.disabled = true;
+		deleteBtn.textContent = '⏳ Deleting...';
+
 		fetch('/delete-all', { method: 'POST' })
 			.then(r => r.json())
 			.then(data => {
 				if (data.success) {
-					location.reload();
+					pollDeletionStatus();
 				} else {
-					alert('Failed to delete all: ' + (data.error || 'Unknown error'));
+					alert('Failed to start deletion: ' + (data.error || 'Unknown error'));
+					deleteBtn.disabled = false;
+					deleteBtn.textContent = '🗑️ Delete All';
 				}
 			})
 			.catch(err => {
 				console.error('Error:', err);
 				alert('Failed to delete all files');
+				deleteBtn.disabled = false;
+				deleteBtn.textContent = '🗑️ Delete All';
 			});
 	}
+}
+
+function pollDeletionStatus() {
+	const deleteBtn = document.getElementById('deleteAllBtn');
+
+	fetch('/api/deletion-status')
+		.then(r => r.json())
+		.then(status => {
+			if (status.in_progress) {
+				const percent = status.total > 0 ? Math.round((status.deleted / status.total) * 100) : 0;
+				deleteBtn.textContent = `⏳ Deleting... (${percent}%)`;
+				setTimeout(pollDeletionStatus, 1000);
+			} else {
+				if (status.error) {
+					alert('Deletion encountered an error: ' + status.error);
+				}
+				refreshFileList();
+				deleteBtn.textContent = '🗑️ Delete All';
+				// Button will be disabled by refreshFileList if no files left
+			}
+		})
+		.catch(err => {
+			console.error('Status check error:', err);
+			setTimeout(pollDeletionStatus, 2000);
+		});
 }

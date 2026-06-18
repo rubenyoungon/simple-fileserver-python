@@ -8,6 +8,10 @@ from collections import defaultdict
 # Global variable to store disk space info
 disk_space_info = {"free": "Calculating...", "total": "Calculating...", "percent": 0}
 
+# Global state for deletion process
+deletion_status = {"in_progress": False, "deleted": 0, "total": 0, "error": None}
+deletion_lock = threading.Lock()
+
 # Configuration for update interval (in seconds)
 DISK_SPACE_UPDATE_INTERVAL = 60  # Update every 60 seconds - customize this as needed
 
@@ -117,3 +121,53 @@ def start_disk_space_monitoring(upload_folder: str):
 def get_disk_space_info():
     """Get current disk space information"""
     return disk_space_info
+
+
+def perform_background_deletion(upload_dir: str):
+    """Background task to delete all files with retries for busy files"""
+    global deletion_status
+    
+    with deletion_lock:
+        if deletion_status["in_progress"]:
+            return
+        deletion_status = {"in_progress": True, "deleted": 0, "total": 0, "error": None}
+
+    try:
+        files = [f for f in os.listdir(upload_dir) if os.path.isfile(os.path.join(upload_dir, f))]
+        deletion_status["total"] = len(files)
+        
+        for filename in files:
+            file_path = os.path.join(upload_dir, filename)
+            # Try to delete with retries
+            max_retries = 5
+            for attempt in range(max_retries):
+                try:
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    deletion_status["deleted"] += 1
+                    break
+                except OSError as e:
+                    if attempt < max_retries - 1:
+                        # Wait a bit for file handles to close
+                        time.sleep(0.5)
+                        continue
+                    else:
+                        print(f"Error deleting {filename} after {max_retries} attempts: {e}")
+                        # We don't stop the whole process, just keep going
+            
+    except Exception as e:
+        deletion_status["error"] = str(e)
+    finally:
+        deletion_status["in_progress"] = False
+
+
+def start_background_deletion(upload_dir: str):
+    """Start the background thread for deleting all files"""
+    thread = threading.Thread(target=perform_background_deletion, args=(upload_dir,), daemon=True)
+    thread.start()
+    return thread
+
+
+def get_deletion_status():
+    """Get current status of background deletion"""
+    return deletion_status
