@@ -1,8 +1,9 @@
 {% if not partial %}
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+	<meta name="csrf-token" content="{{ csrf_token() }}">
 	<title>File Upload</title>
 	<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -14,10 +15,11 @@
 
 	<h2>📁 File Upload & Image Preview</h2>
 	<form method="POST" enctype="multipart/form-data" id="uploadForm">
-		<div class="drop-zone" id="dropZone">
+		<label class="drop-zone" id="dropZone" for="fileInput">
 			<p class="drop-zone-text">📎 Drag & drop, paste (Ctrl+V), or click to browse</p>
 			<input type="file" name="file" id="fileInput" style="display: none;" multiple>
-		</div>
+		</label>
+		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 		<input type="submit" value="Upload" id="uploadBtn" disabled>
 	</form>
 

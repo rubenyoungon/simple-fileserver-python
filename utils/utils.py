@@ -138,22 +138,8 @@ def perform_background_deletion(upload_dir: str):
         
         for filename in files:
             file_path = os.path.join(upload_dir, filename)
-            # Try to delete with retries
-            max_retries = 5
-            for attempt in range(max_retries):
-                try:
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                    deletion_status["deleted"] += 1
-                    break
-                except OSError as e:
-                    if attempt < max_retries - 1:
-                        # Wait a bit for file handles to close
-                        time.sleep(0.5)
-                        continue
-                    else:
-                        print(f"Error deleting {filename} after {max_retries} attempts: {e}")
-                        # We don't stop the whole process, just keep going
+            if _delete_file_with_retries(file_path, filename):
+                deletion_status["deleted"] += 1
             
     except Exception as e:
         deletion_status["error"] = str(e)
@@ -166,6 +152,20 @@ def start_background_deletion(upload_dir: str):
     thread = threading.Thread(target=perform_background_deletion, args=(upload_dir,), daemon=True)
     thread.start()
     return thread
+
+
+def _delete_file_with_retries(file_path: str, filename: str, max_retries: int = 5) -> bool:
+    for attempt in range(max_retries):
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            return True
+        except OSError as error:
+            if attempt == max_retries - 1:
+                print(f"Error deleting {filename} after {max_retries} attempts: {error}")
+            else:
+                time.sleep(0.5)
+    return False
 
 
 def get_deletion_status():
