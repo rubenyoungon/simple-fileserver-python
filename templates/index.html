@@ -5,22 +5,23 @@
 <head>
 	<meta name="csrf-token" content="{{ csrf_token() }}">
 	<title>File Upload</title>
+	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
 	<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
 	<div class="disk-space-info">
-		💾 Free: <span id="freeSpace">{{ disk_space.free }}</span> / {{ disk_space.total }}
+		<span class="material-icons" aria-hidden="true">storage</span> Free: <span id="freeSpace">{{ disk_space.free }}</span> / {{ disk_space.total }}
 	</div>
 
-	<h2>📁 File Upload & Image Preview</h2>
+	<h2><span class="material-icons" aria-hidden="true">folder_open</span> File Upload & Image Preview</h2>
 	<form method="POST" enctype="multipart/form-data" id="uploadForm">
 		<label class="drop-zone" id="dropZone" for="fileInput">
-			<p class="drop-zone-text">📎 Drag & drop, paste (Ctrl+V), or click to browse</p>
+			<p class="drop-zone-text"><span class="material-icons" id="dropZoneIcon" aria-hidden="true">attach_file</span> <span id="dropZoneMessage">Drag & drop, paste (Ctrl+V), or click to browse</span></p>
 			<input type="file" name="file" id="fileInput" style="display: none;" multiple>
 		</label>
 		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-		<input type="submit" value="Upload" id="uploadBtn" disabled>
+		<button type="submit" id="uploadBtn" disabled><span class="material-icons" aria-hidden="true">file_upload</span> <span id="uploadBtnText">Upload</span></button>
 	</form>
 
 	<hr>
@@ -29,8 +30,8 @@
 {% endif %}
 	<h3>Uploaded Files <span id="fileCountText" style="font-weight: normal;">({{ file_count }} files)</span></h3>
 	<div class="file-actions" style="margin: 8px 0;">
-		<button type="button" class="download-btn" onclick="window.location.href='/download-all'" {% if file_count == 0 %}disabled{% endif %}>⬇️ Download All</button>
-		<button id="deleteAllBtn" class="delete-btn" onclick="deleteAllFiles()" {% if file_count==0 %}disabled{% endif %}>🗑️ Delete All</button>
+		<button type="button" class="download-btn" onclick="window.location.href='/download-all'" {% if file_count == 0 %}disabled{% endif %}><span class="material-icons" aria-hidden="true">file_download</span> Download All</button>
+		<button id="deleteAllBtn" class="delete-btn" onclick="deleteAllFiles()" {% if file_count==0 %}disabled{% endif %}><span class="material-icons" aria-hidden="true">delete</span> <span class="button-label">Delete All</span></button>
 	</div>
 	
 	<div id="fileListContainer">
@@ -51,8 +52,8 @@
 						</a>
 						{% endif %}
 						<div class="file-actions">
-							<a href="/files/{{ file_info.filename }}" download class="download-btn">⬇️ Download</a>
-							<button class="delete-btn" onclick="deleteFile('{{ file_info.filename }}')">🗑️ Delete</button>
+							<a href="/files/{{ file_info.filename }}" download class="download-btn"><span class="material-icons" aria-hidden="true">file_download</span> Download</a>
+							<button class="delete-btn" onclick="deleteFile('{{ file_info.filename }}')"><span class="material-icons" aria-hidden="true">delete</span> Delete</button>
 						</div>
 					</div>
 				</li>

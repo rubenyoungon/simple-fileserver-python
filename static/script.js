@@ -1,7 +1,9 @@
 const fileInput = document.getElementById('fileInput');
 const uploadBtn = document.getElementById('uploadBtn');
+const uploadBtnText = document.getElementById('uploadBtnText');
 const dropZone = document.getElementById('dropZone');
-const dropZoneText = dropZone.querySelector('.drop-zone-text');
+const dropZoneIcon = document.getElementById('dropZoneIcon');
+const dropZoneMessage = document.getElementById('dropZoneMessage');
 const uploadForm = document.getElementById('uploadForm');
 const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
@@ -9,10 +11,11 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 fileInput.addEventListener('change', function () {
 	uploadBtn.disabled = !this.files.length;
 	if (this.files.length) {
+		dropZoneIcon.textContent = 'check_circle';
 		if (this.files.length === 1) {
-			dropZoneText.textContent = '✅ ' + this.files[0].name;
+			dropZoneMessage.textContent = this.files[0].name;
 		} else {
-			dropZoneText.textContent = '✅ ' + this.files.length + ' files selected';
+			dropZoneMessage.textContent = this.files.length + ' files selected';
 		}
 	}
 });
@@ -39,10 +42,11 @@ dropZone.addEventListener('drop', function (e) {
 	if (files.length) {
 		fileInput.files = files;
 		uploadBtn.disabled = false;
+		dropZoneIcon.textContent = 'check_circle';
 		if (files.length === 1) {
-			dropZoneText.textContent = '✅ ' + files[0].name;
+			dropZoneMessage.textContent = files[0].name;
 		} else {
-			dropZoneText.textContent = '✅ ' + files.length + ' files selected';
+			dropZoneMessage.textContent = files.length + ' files selected';
 		}
 	}
 });
@@ -69,7 +73,8 @@ document.addEventListener('paste', function (e) {
 
 			// Update UI
 			uploadBtn.disabled = false;
-			dropZoneText.textContent = '✅ ' + fileName;
+			dropZoneIcon.textContent = 'check_circle';
+			dropZoneMessage.textContent = fileName;
 
 			// Focus on the drop zone to give visual feedback
 			dropZone.style.backgroundColor = '#e3f2fd';
@@ -113,7 +118,7 @@ function handleUpload() {
 
 	const formData = new FormData(uploadForm);
 	uploadBtn.disabled = true;
-	uploadBtn.value = 'Uploading...';
+	uploadBtnText.textContent = 'Uploading...';
 
 	fetch('/', {
 		method: 'POST',
@@ -124,41 +129,50 @@ function handleUpload() {
 		}
 	})
 		.then(response => response.json())
-		.then(data => {
+		.then(async data => {
 			if (data.success) {
-				refreshFileList();
+				await refreshFileList();
 				// Reset form
 				uploadForm.reset();
-				dropZoneText.textContent = '📎 Drag & drop, paste (Ctrl+V), or click to browse';
-				uploadBtn.value = 'Upload';
+				dropZoneIcon.textContent = 'attach_file';
+				dropZoneMessage.textContent = 'Drag & drop, paste (Ctrl+V), or click to browse';
+				uploadBtnText.textContent = 'Upload';
 			} else {
 				alert('Upload failed');
 				uploadBtn.disabled = false;
-				uploadBtn.value = 'Upload';
+				uploadBtnText.textContent = 'Upload';
 			}
 		})
 		.catch(error => {
 			console.error('Error:', error);
 			alert('Upload failed');
 			uploadBtn.disabled = false;
-			uploadBtn.value = 'Upload';
+			uploadBtnText.textContent = 'Upload';
 		});
 }
 
 function refreshFileList() {
-	fetch('/?partial=1')
+	return fetch('/?partial=1')
 		.then(response => response.text())
 		.then(html => {
 			document.getElementById('fileListWrapper').innerHTML = html;
-			updateDiskSpace();
+			return updateDiskSpace();
+		})
+		.catch(error => {
+			console.error('File list refresh error:', error);
+			alert('Failed to refresh files');
 		});
 }
 
 function updateDiskSpace() {
-	fetch('/api/disk-space')
+	return fetch('/api/disk-space')
 		.then(response => response.json())
 		.then(data => {
 			document.getElementById('freeSpace').textContent = data.free;
+		})
+		.catch(error => {
+			console.error('Disk space update error:', error);
+			alert('Failed to update disk space');
 		});
 }
 
@@ -169,9 +183,9 @@ function deleteFile(filename) {
 			headers: { 'X-CSRFToken': csrfToken }
 		})
 			.then(response => response.json())
-			.then(data => {
+			.then(async data => {
 				if (data.success) {
-					refreshFileList();
+					await refreshFileList();
 				} else {
 					alert('Failed to delete: ' + (data.error || 'Unknown error'));
 				}
@@ -187,7 +201,7 @@ function deleteAllFiles() {
 	if (confirm('Are you sure you want to delete all files? This action cannot be undone.')) {
 		const deleteBtn = document.getElementById('deleteAllBtn');
 		deleteBtn.disabled = true;
-		deleteBtn.textContent = '⏳ Deleting...';
+		deleteBtn.querySelector('.button-label').textContent = 'Deleting...';
 
 		fetch('/delete-all', {
 			method: 'POST',
@@ -200,14 +214,14 @@ function deleteAllFiles() {
 				} else {
 					alert('Failed to start deletion: ' + (data.error || 'Unknown error'));
 					deleteBtn.disabled = false;
-					deleteBtn.textContent = '🗑️ Delete All';
+					deleteBtn.querySelector('.button-label').textContent = 'Delete All';
 				}
 			})
 			.catch(err => {
 				console.error('Error:', err);
 				alert('Failed to delete all files');
 				deleteBtn.disabled = false;
-				deleteBtn.textContent = '🗑️ Delete All';
+				deleteBtn.querySelector('.button-label').textContent = 'Delete All';
 			});
 	}
 }
@@ -217,17 +231,17 @@ function pollDeletionStatus() {
 
 	fetch('/api/deletion-status')
 		.then(r => r.json())
-		.then(status => {
+		.then(async status => {
 			if (status.in_progress) {
 				const percent = status.total > 0 ? Math.round((status.deleted / status.total) * 100) : 0;
-				deleteBtn.textContent = `⏳ Deleting... (${percent}%)`;
+				deleteBtn.querySelector('.button-label').textContent = `Deleting... (${percent}%)`;
 				setTimeout(pollDeletionStatus, 1000);
 			} else {
 				if (status.error) {
 					alert('Deletion encountered an error: ' + status.error);
 				}
-				refreshFileList();
-				deleteBtn.textContent = '🗑️ Delete All';
+				await refreshFileList();
+				deleteBtn.querySelector('.button-label').textContent = 'Delete All';
 				// Button will be disabled by refreshFileList if no files left
 			}
 		})
