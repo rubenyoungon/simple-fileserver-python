@@ -6,8 +6,37 @@ const dropZone = document.getElementById('dropZone');
 const dropZoneIcon = document.getElementById('dropZoneIcon');
 const dropZoneMessage = document.getElementById('dropZoneMessage');
 const uploadForm = document.getElementById('uploadForm');
-const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+const csrfTokenInput = uploadForm.querySelector('input[name="csrf_token"]');
+let csrfToken = csrfTokenMeta.content;
 let uploadController = null;
+
+async function refreshCsrfToken() {
+	const response = await fetch('/api/csrf-token', { cache: 'no-store' });
+	if (!response.ok) {
+		throw new Error(`CSRF token refresh failed: ${response.status}`);
+	}
+
+	const data = await response.json();
+	if (typeof data.csrf_token !== 'string') {
+		throw new Error('CSRF token refresh returned an invalid token');
+	}
+
+	csrfToken = data.csrf_token;
+	csrfTokenMeta.content = csrfToken;
+	csrfTokenInput.value = csrfToken;
+}
+
+function refreshCsrfTokenSafely() {
+	refreshCsrfToken().catch(error => console.error('CSRF token refresh error:', error));
+}
+
+setInterval(refreshCsrfTokenSafely, 45 * 60 * 1000);
+document.addEventListener('visibilitychange', () => {
+	if (!document.hidden) {
+		refreshCsrfTokenSafely();
+	}
+});
 
 function alignFileNamesByRow() {
 	const fileNamesByRow = new Map();

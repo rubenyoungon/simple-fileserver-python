@@ -1,5 +1,5 @@
 from flask import Flask, request, send_file, send_from_directory, render_template, redirect, url_for, jsonify, make_response
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 import secrets
 import os
 import tempfile
@@ -52,6 +52,13 @@ def upload():
 def get_disk_space():
     """API endpoint to get current disk space"""
     return jsonify(get_disk_space_info())
+
+
+@app.route("/api/csrf-token", methods=["GET"])
+def get_csrf_token():
+    response = jsonify({"csrf_token": generate_csrf()})
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.route("/api/deletion-status", methods=["GET"])
