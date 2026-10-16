@@ -22,6 +22,7 @@
 		</label>
 		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 		<button type="submit" id="uploadBtn" disabled><span class="material-icons" aria-hidden="true">file_upload</span> <span id="uploadBtnText">Upload</span></button>
+		<button type="button" id="cancelUploadBtn" hidden><span class="material-icons" aria-hidden="true">cancel</span> Cancel upload</button>
 	</form>
 
 	<hr>
@@ -44,11 +45,11 @@
 				<li>
 					<div class="file-item">
 						<div class="file-name">
-							<a href="/files/{{ file_info.filename }}">{{ file_info.filename }}</a>
+							<a href="/files/{{ file_info.filename }}" title="{{ file_info.filename }}">{{ file_info.filename[:40] ~ '…' if file_info.filename|length > 40 else file_info.filename }}</a>
 						</div>
 						<time class="file-timestamp" datetime="{{ file_info.modified_at }}">{{ file_info.modified_at }}</time>
 						{% if file_info.is_image %}
-						<a href="/files/{{ file_info.filename }}" target="_blank" rel="noopener noreferrer">
+						<a href="/files/{{ file_info.filename }}" class="image-preview" target="_blank" rel="noopener noreferrer">
 							<img src="/files/{{ file_info.filename }}" alt="{{ file_info.filename }}">
 						</a>
 						{% endif %}

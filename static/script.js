@@ -1,23 +1,55 @@
 const fileInput = document.getElementById('fileInput');
 const uploadBtn = document.getElementById('uploadBtn');
 const uploadBtnText = document.getElementById('uploadBtnText');
+const cancelUploadBtn = document.getElementById('cancelUploadBtn');
 const dropZone = document.getElementById('dropZone');
 const dropZoneIcon = document.getElementById('dropZoneIcon');
 const dropZoneMessage = document.getElementById('dropZoneMessage');
 const uploadForm = document.getElementById('uploadForm');
 const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+let uploadController = null;
+
+function alignFileNamesByRow() {
+	const fileNamesByRow = new Map();
+
+	document.querySelectorAll('.file-name').forEach(fileName => {
+		fileName.style.minHeight = '';
+		const rowTop = Math.round(fileName.closest('li').getBoundingClientRect().top);
+		const rowFileNames = fileNamesByRow.get(rowTop) || [];
+		rowFileNames.push(fileName);
+		fileNamesByRow.set(rowTop, rowFileNames);
+	});
+
+	fileNamesByRow.forEach(rowFileNames => {
+		const rowHeight = Math.max(...rowFileNames.map(fileName => fileName.offsetHeight));
+		rowFileNames.forEach(fileName => {
+			fileName.style.minHeight = `${rowHeight}px`;
+		});
+	});
+}
+
+window.addEventListener('load', alignFileNamesByRow);
+window.addEventListener('resize', alignFileNamesByRow);
+
+function updateFileSelection(files) {
+	uploadBtn.disabled = Boolean(uploadController) || !files.length;
+	cancelUploadBtn.hidden = !files.length && !uploadController;
+
+	if (!files.length) {
+		dropZoneIcon.textContent = 'attach_file';
+		dropZoneMessage.textContent = 'Drag & drop, paste (Ctrl+V), or click to browse';
+		return;
+	}
+
+	dropZoneIcon.textContent = 'check_circle';
+	dropZoneMessage.textContent = files.length === 1
+		? files[0].name
+		: `${files.length} files selected`;
+}
 
 // Enable/disable upload button
 fileInput.addEventListener('change', function () {
-	uploadBtn.disabled = !this.files.length;
-	if (this.files.length) {
-		dropZoneIcon.textContent = 'check_circle';
-		if (this.files.length === 1) {
-			dropZoneMessage.textContent = this.files[0].name;
-		} else {
-			dropZoneMessage.textContent = this.files.length + ' files selected';
-		}
-	}
+	updateFileSelection(this.files);
 });
 
 // Drag and drop handlers
@@ -41,13 +73,7 @@ dropZone.addEventListener('drop', function (e) {
 	const files = e.dataTransfer.files;
 	if (files.length) {
 		fileInput.files = files;
-		uploadBtn.disabled = false;
-		dropZoneIcon.textContent = 'check_circle';
-		if (files.length === 1) {
-			dropZoneMessage.textContent = files[0].name;
-		} else {
-			dropZoneMessage.textContent = files.length + ' files selected';
-		}
+		updateFileSelection(fileInput.files);
 	}
 });
 
@@ -72,9 +98,7 @@ document.addEventListener('paste', function (e) {
 			fileInput.files = dataTransfer.files;
 
 			// Update UI
-			uploadBtn.disabled = false;
-			dropZoneIcon.textContent = 'check_circle';
-			dropZoneMessage.textContent = fileName;
+			updateFileSelection(fileInput.files);
 
 			// Focus on the drop zone to give visual feedback
 			dropZone.style.backgroundColor = '#e3f2fd';
@@ -113,22 +137,38 @@ uploadForm.addEventListener('submit', function (e) {
 	handleUpload();
 });
 
+cancelUploadBtn.addEventListener('click', function () {
+	if (uploadController) {
+		uploadController.abort();
+		return;
+	}
+
+	fileInput.value = '';
+	updateFileSelection(fileInput.files);
+});
+
 function handleUpload() {
-	if (uploadBtn.disabled) return;
+	if (uploadBtn.disabled || uploadController) return;
 
 	const formData = new FormData(uploadForm);
+	uploadController = new AbortController();
 	uploadBtn.disabled = true;
 	uploadBtnText.textContent = 'Uploading...';
+	cancelUploadBtn.hidden = false;
 
 	fetch('/', {
 		method: 'POST',
 		body: formData,
+		signal: uploadController.signal,
 		headers: {
 			'X-Requested-With': 'XMLHttpRequest',
 			'X-CSRFToken': csrfToken
 		}
 	})
-		.then(response => response.json())
+		.then(response => {
+			uploadController = null;
+			return response.json();
+		})
 		.then(async data => {
 			if (data.success) {
 				await refreshFileList();
@@ -137,17 +177,27 @@ function handleUpload() {
 				dropZoneIcon.textContent = 'attach_file';
 				dropZoneMessage.textContent = 'Drag & drop, paste (Ctrl+V), or click to browse';
 				uploadBtnText.textContent = 'Upload';
+				uploadBtn.disabled = true;
 			} else {
 				alert('Upload failed');
-				uploadBtn.disabled = false;
+				uploadBtn.disabled = !fileInput.files.length;
 				uploadBtnText.textContent = 'Upload';
 			}
 		})
 		.catch(error => {
+			if (error.name === 'AbortError') {
+				uploadBtn.disabled = !fileInput.files.length;
+				uploadBtnText.textContent = 'Upload';
+				return;
+			}
 			console.error('Error:', error);
 			alert('Upload failed');
-			uploadBtn.disabled = false;
+			uploadBtn.disabled = !fileInput.files.length;
 			uploadBtnText.textContent = 'Upload';
+		})
+		.finally(() => {
+			uploadController = null;
+			cancelUploadBtn.hidden = !fileInput.files.length;
 		});
 }
 
@@ -156,6 +206,7 @@ function refreshFileList() {
 		.then(response => response.text())
 		.then(html => {
 			document.getElementById('fileListWrapper').innerHTML = html;
+			alignFileNamesByRow();
 			return updateDiskSpace();
 		})
 		.catch(error => {

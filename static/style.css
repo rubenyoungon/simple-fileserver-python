@@ -91,6 +91,29 @@ button[type="submit"]:disabled:hover {
 	background: #3b4454;
 }
 
+#cancelUploadBtn {
+	background: #8a1f1c;
+	color: #e2e2e2;
+	border: none;
+	padding: 8px 16px;
+	border-radius: 5px;
+	cursor: pointer;
+	font: inherit;
+	font-weight: 700;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	margin-left: 8px;
+}
+
+#cancelUploadBtn:hover {
+	background: #6e1917;
+}
+
+#cancelUploadBtn[hidden] {
+	display: none;
+}
+
 ul {
 	list-style-type: none;
 	padding: 0;
@@ -119,6 +142,8 @@ li {
 	flex-direction: column;
 	align-items: center;
 	height: 100%;
+	box-sizing: border-box;
+	padding-bottom: 12px;
 }
 
 .file-name {
@@ -134,6 +159,9 @@ li {
 	color: #e8eef5;
 	background: #3a4352;
 	border-radius: 5px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 .file-timestamp {
@@ -148,14 +176,25 @@ li {
 	margin-top: 10px;
 }
 
+.file-item > .file-actions {
+	margin-top: auto;
+}
+
 img {
 	max-width: 100%;
 	max-height: 200px;
-	object-fit: cover;
+	width: auto;
+	height: auto;
+	object-fit: contain;
 	border-radius: 6px;
 	margin: 10px 0;
 	box-shadow: 0 2px 12px rgba(0,0,0,0.7);
 	background: #0f1115;
+}
+
+.image-preview {
+	display: block;
+	width: calc(100% - 20px);
 }
 
 a {
