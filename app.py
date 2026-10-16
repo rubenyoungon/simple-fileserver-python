@@ -1,5 +1,7 @@
-from flask import Flask, request, send_from_directory, render_template, redirect, url_for, jsonify, make_response
+from flask import Flask, request, send_file, send_from_directory, render_template, redirect, url_for, jsonify, make_response
 import os
+import tempfile
+import zipfile
 from email.utils import formatdate
 
 from utils.utils import (
@@ -50,6 +52,33 @@ def get_disk_space():
 def deletion_status():
     """API endpoint to get current deletion status"""
     return jsonify(get_deletion_status())
+
+
+@app.route("/download-all")
+def download_all():
+    """Download all uploaded files as a ZIP archive."""
+    filenames = [
+        filename for filename in os.listdir(UPLOAD_FOLDER)
+        if os.path.isfile(os.path.join(UPLOAD_FOLDER, filename))
+    ]
+    if not filenames:
+        return jsonify({"success": False, "error": "No files to download"}), 404
+
+    archive = tempfile.SpooledTemporaryFile()
+    try:
+        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
+            for filename in filenames:
+                zip_file.write(os.path.join(UPLOAD_FOLDER, filename), arcname=filename)
+        archive.seek(0)
+        return send_file(
+            archive,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name="files.zip",
+        )
+    except Exception:
+        archive.close()
+        raise
 
 
 @app.route("/files/<filename>")

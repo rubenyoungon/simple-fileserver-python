@@ -27,6 +27,7 @@
 {% endif %}
 	<h3>Uploaded Files <span id="fileCountText" style="font-weight: normal;">({{ file_count }} files)</span></h3>
 	<div class="file-actions" style="margin: 8px 0;">
+		<button type="button" class="download-btn" onclick="window.location.href='/download-all'" {% if file_count == 0 %}disabled{% endif %}>⬇️ Download All</button>
 		<button id="deleteAllBtn" class="delete-btn" onclick="deleteAllFiles()" {% if file_count==0 %}disabled{% endif %}>🗑️ Delete All</button>
 	</div>
 	

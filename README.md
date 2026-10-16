@@ -4,7 +4,7 @@ A lightweight file server application built with Python and Flask.
 
 ## Features
 - Drag & drop uploads via the web UI
-- Browse and download files
+- Browse and download individual files or all files as a ZIP archive
 - Simple, single-file server app
 - Serves static assets and templates
 
