@@ -133,7 +133,29 @@ button[type="submit"]:disabled:hover {
 	margin: 0 0 20px;
 }
 
+.error-dialog-title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 12px;
+	font-size: 1.1em;
+	color: #ff6b6b;
+}
+
+.error-dialog form.confirm-dialog-actions {
+	background: none;
+	padding: 0;
+	box-shadow: none;
+	border-radius: 0;
+}
+
+.error-dialog p {
+	white-space: pre-line;
+	text-align: left;
+}
+
 .confirm-dialog-actions {
+	margin: 0;
 	display: flex;
 	justify-content: center;
 	gap: 10px;

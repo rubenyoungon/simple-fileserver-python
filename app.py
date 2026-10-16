@@ -1,5 +1,6 @@
 from flask import Flask, request, send_file, send_from_directory, render_template, redirect, url_for, jsonify, make_response
 from flask_wtf.csrf import CSRFProtect, generate_csrf
+from werkzeug.exceptions import HTTPException, BadRequest
 import secrets
 import os
 import tempfile
@@ -9,7 +10,8 @@ from email.utils import formatdate
 from utils.utils import (
     get_files_grouped_by_date, format_date_header, save_uploaded_file,
     start_disk_space_monitoring, get_disk_space_info,
-    start_background_deletion, get_deletion_status
+    start_background_deletion, get_deletion_status,
+    ALLOWED_EXTENSIONS, is_allowed_file
 )
 
 app = Flask(__name__)
@@ -24,15 +26,61 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # Start disk space monitoring
 disk_space_thread = start_disk_space_monitoring(UPLOAD_FOLDER)
 
+def wants_json() -> bool:
+    """True for requests made by script.js, which expect JSON instead of HTML error pages."""
+    return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(error):
+    """Return JSON errors (e.g. expired CSRF token, upload too large) to fetch() callers."""
+    if wants_json():
+        return jsonify({"success": False, "error": error.description}), error.code
+    return error
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(error):
+    app.logger.exception("Unhandled error")
+    if wants_json():
+        return jsonify({"success": False, "error": f"Internal server error: {error}"}), 500
+    return "Internal server error", 500
+
+
 @app.route("/", methods=["GET", "POST"])
 def upload():
     if request.method == "POST":
-        files = request.files.getlist('file')
+        files = [file for file in request.files.getlist('file') if file and file.filename]
+        if not files:
+            if wants_json():
+                return jsonify({"success": False, "error": "No file was selected."}), 400
+            return redirect(url_for('upload'))
+
+        rejected = [file.filename for file in files if not is_allowed_file(file.filename)]
+        if rejected:
+            # Reject the whole upload so nothing is half-saved.
+            raise BadRequest(
+                "Only photos, videos and documents can be uploaded. Not allowed: "
+                + ", ".join(rejected)
+                + "\n\nAllowed types: " + ", ".join(ALLOWED_EXTENSIONS)
+            )
+
+        failed = []
         for file in files:
-            if file:
+            try:
                 save_uploaded_file(UPLOAD_FOLDER, file)
-        
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            except OSError as error:
+                app.logger.exception("Failed to save %s", file.filename)
+                failed.append(f"{file.filename}: {error.strerror or error}")
+
+        if wants_json():
+            if failed:
+                saved_count = len(files) - len(failed)
+                message = f"Could not save {len(failed)} of {len(files)} file(s)"
+                if saved_count:
+                    message += f" ({saved_count} saved)"
+                message += ".\n" + "\n".join(failed)
+                return jsonify({"success": False, "error": message}), 500
             return jsonify({"success": True})
 
         return redirect(url_for('upload'))
@@ -40,12 +88,14 @@ def upload():
     grouped_files = get_files_grouped_by_date(UPLOAD_FOLDER)
     file_count = sum(len(files) for files in grouped_files.values())
     
+    accept = ",".join(ALLOWED_EXTENSIONS)
+
     if request.args.get('partial'):
         return render_template("index.html", grouped_files=grouped_files, file_count=file_count, 
                              disk_space=get_disk_space_info(), format_date_header=format_date_header, partial=True)
 
     return render_template("index.html", grouped_files=grouped_files, file_count=file_count, 
-                         disk_space=get_disk_space_info(), format_date_header=format_date_header)
+                         disk_space=get_disk_space_info(), format_date_header=format_date_header, accept=accept)
 
 
 @app.route("/api/disk-space", methods=["GET"])

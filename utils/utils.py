@@ -12,6 +12,22 @@ disk_space_info = {"free": "Calculating...", "total": "Calculating...", "percent
 deletion_status = {"in_progress": False, "deleted": 0, "total": 0, "error": None}
 deletion_lock = threading.Lock()
 
+# Allowed upload types: photos, videos and documents. Checked by extension (case-insensitive).
+# SVG is intentionally excluded: it can contain scripts and files are served inline.
+PHOTO_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic', '.heif', '.tif', '.tiff')
+VIDEO_EXTENSIONS = ('.mp4', '.m4v', '.mov', '.webm', '.mkv', '.avi', '.wmv', '.3gp')
+DOCUMENT_EXTENSIONS = (
+    '.pdf', '.txt', '.md', '.rtf', '.csv',
+    '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    '.odt', '.ods', '.odp',
+)
+ALLOWED_EXTENSIONS = PHOTO_EXTENSIONS + VIDEO_EXTENSIONS + DOCUMENT_EXTENSIONS
+
+
+def is_allowed_file(filename: str) -> bool:
+    return os.path.splitext(filename)[1].lower() in ALLOWED_EXTENSIONS
+
+
 # Configuration for update interval (in seconds)
 DISK_SPACE_UPDATE_INTERVAL = 60  # Update every 60 seconds - customize this as needed
 

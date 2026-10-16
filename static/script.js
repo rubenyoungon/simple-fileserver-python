@@ -11,6 +11,58 @@ const csrfTokenInput = uploadForm.querySelector('input[name="csrf_token"]');
 let csrfToken = csrfTokenMeta.content;
 let uploadController = null;
 
+const errorDialog = document.getElementById('errorDialog');
+const errorDialogTitleText = document.getElementById('errorDialogTitleText');
+const errorDialogMessage = document.getElementById('errorDialogMessage');
+const errorDialogClose = document.getElementById('errorDialogClose');
+
+errorDialog.addEventListener('click', event => {
+	if (event.target === errorDialog) {
+		errorDialog.close();
+	}
+});
+
+function showErrorDialog(title, message) {
+	if (errorDialog.open) {
+		// Another error is already showing: keep both visible instead of losing one.
+		errorDialogMessage.textContent += `\n\n${title}: ${message}`;
+		return;
+	}
+	errorDialogTitleText.textContent = title;
+	errorDialogMessage.textContent = message;
+	errorDialog.showModal();
+	errorDialogClose.focus();
+}
+
+// Turns any failure (network, HTTP status, server-reported error) into a readable message.
+function describeError(error) {
+	if (error instanceof TypeError) {
+		return 'Could not reach the server. Check that it is running and that you are connected, then try again.';
+	}
+	return error.message || String(error);
+}
+
+// Parses a JSON response and throws an Error carrying the server's message if the request failed.
+async function readJsonResponse(response) {
+	let data = null;
+	try {
+		data = await response.json();
+	} catch {
+		// Response body was not JSON (e.g. an HTML error page from a proxy).
+	}
+
+	if (!response.ok || (data && data.success === false)) {
+		const fallback = response.status === 413
+			? 'The upload is too large for the server to accept.'
+			: `Server responded with ${response.status}${response.statusText ? ' ' + response.statusText : ''}.`;
+		throw new Error((data && data.error) || fallback);
+	}
+	if (data === null) {
+		throw new Error('The server returned an unexpected response.');
+	}
+	return data;
+}
+
 async function refreshCsrfToken() {
 	const response = await fetch('/api/csrf-token', { cache: 'no-store' });
 	if (!response.ok) {
@@ -77,8 +129,33 @@ function updateFileSelection(files) {
 }
 
 // Enable/disable upload button
+const allowedExtensions = fileInput.accept.split(',').map(ext => ext.trim().toLowerCase()).filter(Boolean);
+
+function isAllowedFile(file) {
+	const dot = file.name.lastIndexOf('.');
+	const extension = dot === -1 ? '' : file.name.slice(dot).toLowerCase();
+	return allowedExtensions.includes(extension);
+}
+
+// Shows an error and clears the selection if any file is not a photo, video or document.
+function validateSelection(files) {
+	const rejected = Array.from(files).filter(file => !isAllowedFile(file)).map(file => file.name);
+	if (!rejected.length) {
+		return true;
+	}
+	fileInput.value = '';
+	updateFileSelection(fileInput.files);
+	showErrorDialog(
+		'File type not allowed',
+		`Only photos, videos and documents can be uploaded. Not allowed: ${rejected.join(', ')}\n\nAllowed types: ${allowedExtensions.join(', ')}`
+	);
+	return false;
+}
+
 fileInput.addEventListener('change', function () {
-	updateFileSelection(this.files);
+	if (validateSelection(this.files)) {
+		updateFileSelection(this.files);
+	}
 });
 
 // Drag and drop handlers
@@ -100,7 +177,7 @@ dropZone.addEventListener('drop', function (e) {
 	this.classList.remove('dragover');
 
 	const files = e.dataTransfer.files;
-	if (files.length) {
+	if (files.length && validateSelection(files)) {
 		fileInput.files = files;
 		updateFileSelection(fileInput.files);
 	}
@@ -194,35 +271,26 @@ function handleUpload() {
 			'X-CSRFToken': csrfToken
 		}
 	})
-		.then(response => {
+		.then(readJsonResponse)
+		.then(async () => {
 			uploadController = null;
-			return response.json();
-		})
-		.then(async data => {
-			if (data.success) {
-				await refreshFileList();
-				// Reset form
-				uploadForm.reset();
-				dropZoneIcon.textContent = 'attach_file';
-				dropZoneMessage.textContent = 'Drag & drop, paste (Ctrl+V), or click to browse';
-				uploadBtnText.textContent = 'Upload';
-				uploadBtn.disabled = true;
-			} else {
-				alert('Upload failed');
-				uploadBtn.disabled = !fileInput.files.length;
-				uploadBtnText.textContent = 'Upload';
-			}
+			await refreshFileList();
+			// Reset form
+			uploadForm.reset();
+			dropZoneIcon.textContent = 'attach_file';
+			dropZoneMessage.textContent = 'Drag & drop, paste (Ctrl+V), or click to browse';
+			uploadBtnText.textContent = 'Upload';
+			uploadBtn.disabled = true;
 		})
 		.catch(error => {
-			if (error.name === 'AbortError') {
-				uploadBtn.disabled = !fileInput.files.length;
-				uploadBtnText.textContent = 'Upload';
-				return;
-			}
-			console.error('Error:', error);
-			alert('Upload failed');
+			uploadController = null;
 			uploadBtn.disabled = !fileInput.files.length;
 			uploadBtnText.textContent = 'Upload';
+			if (error.name === 'AbortError') {
+				return;
+			}
+			console.error('Upload error:', error);
+			showErrorDialog('Upload failed', describeError(error));
 		})
 		.finally(() => {
 			uploadController = null;
@@ -232,7 +300,12 @@ function handleUpload() {
 
 function refreshFileList() {
 	return fetch('/?partial=1')
-		.then(response => response.text())
+		.then(response => {
+			if (!response.ok) {
+				throw new Error(`Server responded with ${response.status}${response.statusText ? ' ' + response.statusText : ''}.`);
+			}
+			return response.text();
+		})
 		.then(html => {
 			document.getElementById('fileListWrapper').innerHTML = html;
 			alignFileNamesByRow();
@@ -240,19 +313,19 @@ function refreshFileList() {
 		})
 		.catch(error => {
 			console.error('File list refresh error:', error);
-			alert('Failed to refresh files');
+			showErrorDialog('Failed to refresh files', describeError(error));
 		});
 }
 
 function updateDiskSpace() {
 	return fetch('/api/disk-space')
-		.then(response => response.json())
+		.then(readJsonResponse)
 		.then(data => {
 			document.getElementById('freeSpace').textContent = data.free;
 		})
 		.catch(error => {
 			console.error('Disk space update error:', error);
-			alert('Failed to update disk space');
+			showErrorDialog('Failed to update disk space', describeError(error));
 		});
 }
 
@@ -298,19 +371,13 @@ async function deleteFile(filename) {
 	if (await showConfirmDialog('Are you sure you want to delete ' + filename + '?')) {
 		fetch('/delete/' + encodeURIComponent(filename), {
 			method: 'POST',
-			headers: { 'X-CSRFToken': csrfToken }
+			headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken }
 		})
-			.then(response => response.json())
-			.then(async data => {
-				if (data.success) {
-					await refreshFileList();
-				} else {
-					alert('Failed to delete: ' + (data.error || 'Unknown error'));
-				}
-			})
+			.then(readJsonResponse)
+			.then(() => refreshFileList())
 			.catch(error => {
-				console.error('Error:', error);
-				alert('Failed to delete file');
+				console.error('Delete error:', error);
+				showErrorDialog(`Failed to delete ${filename}`, describeError(error));
 			});
 	}
 }
@@ -323,21 +390,13 @@ async function deleteAllFiles() {
 
 		fetch('/delete-all', {
 			method: 'POST',
-			headers: { 'X-CSRFToken': csrfToken }
+			headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken }
 		})
-			.then(r => r.json())
-			.then(data => {
-				if (data.success) {
-					pollDeletionStatus();
-				} else {
-					alert('Failed to start deletion: ' + (data.error || 'Unknown error'));
-					deleteBtn.disabled = false;
-					deleteBtn.querySelector('.button-label').textContent = 'Delete All';
-				}
-			})
+			.then(readJsonResponse)
+			.then(() => pollDeletionStatus())
 			.catch(err => {
-				console.error('Error:', err);
-				alert('Failed to delete all files');
+				console.error('Delete all error:', err);
+				showErrorDialog('Failed to delete all files', describeError(err));
 				deleteBtn.disabled = false;
 				deleteBtn.querySelector('.button-label').textContent = 'Delete All';
 			});
@@ -348,7 +407,7 @@ function pollDeletionStatus() {
 	const deleteBtn = document.getElementById('deleteAllBtn');
 
 	fetch('/api/deletion-status')
-		.then(r => r.json())
+		.then(readJsonResponse)
 		.then(async status => {
 			if (status.in_progress) {
 				const percent = status.total > 0 ? Math.round((status.deleted / status.total) * 100) : 0;
@@ -356,7 +415,7 @@ function pollDeletionStatus() {
 				setTimeout(pollDeletionStatus, 1000);
 			} else {
 				if (status.error) {
-					alert('Deletion encountered an error: ' + status.error);
+					showErrorDialog('Deletion encountered an error', status.error);
 				}
 				await refreshFileList();
 				deleteBtn.querySelector('.button-label').textContent = 'Delete All';
