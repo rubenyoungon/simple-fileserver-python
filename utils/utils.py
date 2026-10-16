@@ -28,6 +28,22 @@ def is_allowed_file(filename: str) -> bool:
     return os.path.splitext(filename)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def get_upload_path(upload_dir: str, filename: str) -> str | None:
+    """Return the path of filename directly inside upload_dir, or None if it is not a plain file name.
+
+    Rejects separators (both / and \\), '.', '..', drive prefixes and NTFS streams ('C:x', 'a.pdf:s'),
+    and anything that would resolve outside upload_dir.
+    """
+    if (not filename or filename in ('.', '..')
+            or any(char in filename for char in ('/', '\\', ':', '\0'))):
+        return None
+    upload_root = os.path.realpath(upload_dir)
+    path = os.path.realpath(os.path.join(upload_root, filename))
+    if os.path.dirname(path) != upload_root:
+        return None
+    return path
+
+
 # Configuration for update interval (in seconds)
 DISK_SPACE_UPDATE_INTERVAL = 60  # Update every 60 seconds - customize this as needed
 
@@ -120,7 +136,10 @@ def get_available_filename(upload_dir: str, original_filename: str) -> str:
 def save_uploaded_file(upload_dir: str, file) -> str:
     """Saves the werkzeug FileStorage to disk using collision-safe name. Returns final filename."""
     target_filename = get_available_filename(upload_dir, file.filename)
-    file.save(os.path.join(upload_dir, target_filename))
+    target_path = get_upload_path(upload_dir, target_filename)
+    if target_path is None:
+        raise ValueError(f"Invalid file name: {file.filename}")
+    file.save(target_path)
     return target_filename
 
 

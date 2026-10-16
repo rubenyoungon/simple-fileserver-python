@@ -11,7 +11,7 @@ from utils.utils import (
     get_files_grouped_by_date, format_date_header, save_uploaded_file,
     start_disk_space_monitoring, get_disk_space_info,
     start_background_deletion, get_deletion_status,
-    ALLOWED_EXTENSIONS, is_allowed_file
+    ALLOWED_EXTENSIONS, is_allowed_file, get_upload_path
 )
 
 app = Flask(__name__)
@@ -55,6 +55,10 @@ def upload():
             if wants_json():
                 return jsonify({"success": False, "error": "No file was selected."}), 400
             return redirect(url_for('upload'))
+
+        invalid = [file.filename for file in files if get_upload_path(UPLOAD_FOLDER, file.filename) is None]
+        if invalid:
+            raise BadRequest("Invalid file name: " + ", ".join(invalid))
 
         rejected = [file.filename for file in files if not is_allowed_file(file.filename)]
         if rejected:
@@ -147,9 +151,9 @@ def download_all():
 @app.route("/files/<filename>", methods=["GET"])
 def files(filename):
     """Serve files with headers that are friendlier for iOS/WebKit."""
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    file_path = get_upload_path(UPLOAD_FOLDER, filename)
 
-    if not os.path.exists(file_path):
+    if file_path is None or not os.path.isfile(file_path):
         return {"success": False, "error": "File not found"}, 404
 
     response = make_response(send_from_directory(UPLOAD_FOLDER, filename))
@@ -168,9 +172,9 @@ def files(filename):
 @app.route("/delete/<filename>", methods=["POST"])
 def delete_file(filename):
     try:
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        file_path = get_upload_path(UPLOAD_FOLDER, filename)
 
-        if os.path.exists(file_path):
+        if file_path is not None and os.path.isfile(file_path):
             os.remove(file_path)
             return {"success": True}, 200
         
