@@ -70,6 +70,14 @@
 {% if not partial %}
 	</div>
 
+	<dialog id="confirmDialog" class="confirm-dialog" aria-labelledby="confirmDialogMessage">
+		<p id="confirmDialogMessage"></p>
+		<div class="confirm-dialog-actions">
+			<button type="button" id="confirmDialogCancel" class="cancel-btn">Cancel</button>
+			<button type="button" id="confirmDialogConfirm" class="delete-btn"><span class="material-icons" aria-hidden="true">delete</span> Delete</button>
+		</div>
+	</dialog>
+
 	<script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 

@@ -227,8 +227,46 @@ function updateDiskSpace() {
 		});
 }
 
-function deleteFile(filename) {
-	if (confirm('Are you sure you want to delete ' + filename + '?')) {
+const confirmDialog = document.getElementById('confirmDialog');
+const confirmDialogMessage = document.getElementById('confirmDialogMessage');
+const confirmDialogConfirm = document.getElementById('confirmDialogConfirm');
+const confirmDialogCancel = document.getElementById('confirmDialogCancel');
+
+function showConfirmDialog(message) {
+	return new Promise(resolve => {
+		confirmDialogMessage.textContent = message;
+
+		const finish = result => {
+			confirmDialogConfirm.removeEventListener('click', onConfirm);
+			confirmDialogCancel.removeEventListener('click', onCancel);
+			confirmDialog.removeEventListener('cancel', onCancel);
+			confirmDialog.removeEventListener('click', onBackdropClick);
+			confirmDialog.close();
+			resolve(result);
+		};
+		const onConfirm = () => finish(true);
+		const onCancel = e => {
+			e.preventDefault();
+			finish(false);
+		};
+
+		confirmDialogConfirm.addEventListener('click', onConfirm);
+		confirmDialogCancel.addEventListener('click', onCancel);
+		confirmDialog.addEventListener('cancel', onCancel);
+		confirmDialog.addEventListener('click', onBackdropClick);
+		confirmDialog.showModal();
+		confirmDialogCancel.focus();
+
+		function onBackdropClick(event) {
+			if (event.target === confirmDialog) {
+				finish(false);
+			}
+		}
+	});
+}
+
+async function deleteFile(filename) {
+	if (await showConfirmDialog('Are you sure you want to delete ' + filename + '?')) {
 		fetch('/delete/' + encodeURIComponent(filename), {
 			method: 'POST',
 			headers: { 'X-CSRFToken': csrfToken }
@@ -248,8 +286,8 @@ function deleteFile(filename) {
 	}
 }
 
-function deleteAllFiles() {
-	if (confirm('Are you sure you want to delete all files? This action cannot be undone.')) {
+async function deleteAllFiles() {
+	if (await showConfirmDialog('Are you sure you want to delete all files? This action cannot be undone.')) {
 		const deleteBtn = document.getElementById('deleteAllBtn');
 		deleteBtn.disabled = true;
 		deleteBtn.querySelector('.button-label').textContent = 'Deleting...';
