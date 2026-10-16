@@ -164,7 +164,9 @@ def files(filename):
     response.headers["ETag"] = f'"{stat_result.st_mtime_ns}-{stat_result.st_size}"'
     response.headers["Accept-Ranges"] = "bytes"
     response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-    response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
+    # Uploads are served inline, so stop browsers from sniffing them into e.g. HTML.
+    # Content-Disposition is set (quoted and RFC 5987-encoded) by send_from_directory.
+    response.headers["X-Content-Type-Options"] = "nosniff"
 
     return response
 
