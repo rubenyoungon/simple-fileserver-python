@@ -36,6 +36,7 @@ form {
 }
 
 .drop-zone {
+	display: block;
 	border: 2px dashed #3a86ff;
 	border-radius: 8px;
 	padding: 40px;
@@ -109,8 +110,8 @@ li {
 
 .file-name {
 	word-wrap: break-word;
-	word-break: break-word;
-	overflow-wrap: break-word;
+	word-break: normal;
+	overflow-wrap: anywhere;
 	margin-bottom: 10px;
 	text-align: center;
 	width: 100%;
@@ -121,7 +122,6 @@ li {
 	display: flex;
 	gap: 10px;
 	margin-top: 10px;
-	/* padding-top: 10px; */
 }
 
 img {
@@ -168,7 +168,9 @@ a:hover {
 	border-radius: 5px;
 	cursor: pointer;
 	margin-left: 0;
+	font: inherit;
 	font-size: 14px;
+	font-weight: 700;
 	text-decoration: none;
 	display: inline-block;
 }
@@ -176,6 +178,12 @@ a:hover {
 	background: #134b21;
 	color: #cfcfcf;
 	text-decoration: none;
+}
+
+.download-btn:disabled {
+	background: #3b4454;
+	color: #b8c2cc;
+	cursor: not-allowed;
 }
 
 .file-header {

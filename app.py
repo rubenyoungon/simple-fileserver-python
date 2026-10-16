@@ -1,5 +1,9 @@
-from flask import Flask, request, send_from_directory, render_template, redirect, url_for, jsonify, make_response
+from flask import Flask, request, send_file, send_from_directory, render_template, redirect, url_for, jsonify, make_response
+from flask_wtf.csrf import CSRFProtect
+import secrets
 import os
+import tempfile
+import zipfile
 from email.utils import formatdate
 
 from utils.utils import (
@@ -9,12 +13,16 @@ from utils.utils import (
 )
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or secrets.token_hex(32)
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+CSRFProtect(app)
+
 UPLOAD_FOLDER = './uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Start disk space monitoring
 disk_space_thread = start_disk_space_monitoring(UPLOAD_FOLDER)
-
 
 @app.route("/", methods=["GET", "POST"])
 def upload():
@@ -40,19 +48,46 @@ def upload():
                          disk_space=get_disk_space_info(), format_date_header=format_date_header)
 
 
-@app.route("/api/disk-space")
+@app.route("/api/disk-space", methods=["GET"])
 def get_disk_space():
     """API endpoint to get current disk space"""
     return jsonify(get_disk_space_info())
 
 
-@app.route("/api/deletion-status")
+@app.route("/api/deletion-status", methods=["GET"])
 def deletion_status():
     """API endpoint to get current deletion status"""
     return jsonify(get_deletion_status())
 
 
-@app.route("/files/<filename>")
+@app.route("/download-all", methods=["GET"])
+def download_all():
+    """Download all uploaded files as a ZIP archive."""
+    filenames = [
+        filename for filename in os.listdir(UPLOAD_FOLDER)
+        if os.path.isfile(os.path.join(UPLOAD_FOLDER, filename))
+    ]
+    if not filenames:
+        return jsonify({"success": False, "error": "No files to download"}), 404
+
+    archive = tempfile.SpooledTemporaryFile()
+    try:
+        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
+            for filename in filenames:
+                zip_file.write(os.path.join(UPLOAD_FOLDER, filename), arcname=filename)
+        archive.seek(0)
+        return send_file(
+            archive,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name="files.zip",
+        )
+    except Exception:
+        archive.close()
+        raise
+
+
+@app.route("/files/<filename>", methods=["GET"])
 def files(filename):
     """Serve files with headers that are friendlier for iOS/WebKit."""
     file_path = os.path.join(UPLOAD_FOLDER, filename)
@@ -97,4 +132,4 @@ def delete_all_files():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+    app.run(host="127.0.0.1", port=8000)

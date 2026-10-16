@@ -3,6 +3,7 @@ const uploadBtn = document.getElementById('uploadBtn');
 const dropZone = document.getElementById('dropZone');
 const dropZoneText = dropZone.querySelector('.drop-zone-text');
 const uploadForm = document.getElementById('uploadForm');
+const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
 // Enable/disable upload button
 fileInput.addEventListener('change', function () {
@@ -14,11 +15,6 @@ fileInput.addEventListener('change', function () {
 			dropZoneText.textContent = '✅ ' + this.files.length + ' files selected';
 		}
 	}
-});
-
-// Click to browse
-dropZone.addEventListener('click', function () {
-	fileInput.click();
 });
 
 // Drag and drop handlers
@@ -55,12 +51,12 @@ dropZone.addEventListener('drop', function (e) {
 document.addEventListener('paste', function (e) {
 	const items = e.clipboardData.items;
 
-	for (let i = 0; i < items.length; i++) {
-		if (items[i].type.indexOf('image') !== -1) {
+	for (const item of items) {
+		if (item.type.includes('image')) {
 			e.preventDefault();
 
-			const blob = items[i].getAsFile();
-			const timestamp = new Date().getTime();
+			const blob = item.getAsFile();
+			const timestamp = Date.now();
 			const fileName = `pasted-image-${timestamp}.png`;
 
 			// Create a new File object with a proper name
@@ -123,7 +119,8 @@ function handleUpload() {
 		method: 'POST',
 		body: formData,
 		headers: {
-			'X-Requested-With': 'XMLHttpRequest'
+			'X-Requested-With': 'XMLHttpRequest',
+			'X-CSRFToken': csrfToken
 		}
 	})
 		.then(response => response.json())
@@ -167,7 +164,10 @@ function updateDiskSpace() {
 
 function deleteFile(filename) {
 	if (confirm('Are you sure you want to delete ' + filename + '?')) {
-		fetch('/delete/' + encodeURIComponent(filename), { method: 'POST' })
+		fetch('/delete/' + encodeURIComponent(filename), {
+			method: 'POST',
+			headers: { 'X-CSRFToken': csrfToken }
+		})
 			.then(response => response.json())
 			.then(data => {
 				if (data.success) {
@@ -189,7 +189,10 @@ function deleteAllFiles() {
 		deleteBtn.disabled = true;
 		deleteBtn.textContent = '⏳ Deleting...';
 
-		fetch('/delete-all', { method: 'POST' })
+		fetch('/delete-all', {
+			method: 'POST',
+			headers: { 'X-CSRFToken': csrfToken }
+		})
 			.then(r => r.json())
 			.then(data => {
 				if (data.success) {
