@@ -136,6 +136,12 @@ li {
 	border-radius: 5px;
 }
 
+.file-timestamp {
+	color: #b8c2cc;
+	font-size: 12px;
+	margin-bottom: 4px;
+}
+
 .file-actions {
 	display: flex;
 	gap: 10px;

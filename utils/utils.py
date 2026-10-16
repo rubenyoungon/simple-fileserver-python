@@ -56,6 +56,7 @@ def get_files_grouped_by_date(upload_dir: str) -> dict[str, list[dict]]:
             files_with_info.append({
                 'filename': filename,
                 'mtime': mtime,
+                'modified_at': mtime_datetime.strftime('%H:%M'),
                 'date_key': date_key,
                 'is_image': filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'))
             })
