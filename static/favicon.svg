@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Simple file icon styled to match app accents -->
+  <path d="M18 10h22l16 16v26a8 8 0 0 1-8 8H26a8 8 0 0 1-8-8V18a8 8 0 0 1 8-8z" fill="none" stroke="#3a86ff" stroke-width="3" />
+  <path d="M40 10v16h16" fill="none" stroke="#3a86ff" stroke-width="3" />
+  <path d="M24 34h18M24 42h14" stroke="#7cc4ff" stroke-width="3" stroke-linecap="round" />
+</svg>
