@@ -7,7 +7,6 @@ const dropZoneIcon = document.getElementById('dropZoneIcon');
 const dropZoneMessage = document.getElementById('dropZoneMessage');
 const uploadForm = document.getElementById('uploadForm');
 const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
-const csrfTokenInput = uploadForm.querySelector('input[name="csrf_token"]');
 let csrfToken = csrfTokenMeta.content;
 let uploadController = null;
 
@@ -23,6 +22,10 @@ errorDialog.addEventListener('click', event => {
 });
 
 function showErrorDialog(title, message) {
+	if (redirectingToLogin) {
+		// The page is about to be replaced by the login page; don't flash an error first.
+		return;
+	}
 	if (errorDialog.open) {
 		// Another error is already showing: keep both visible instead of losing one.
 		errorDialogMessage.textContent += `\n\n${title}: ${message}`;
@@ -47,8 +50,30 @@ class ServerBusyError extends Error {
 	name = 'ServerBusyError';
 }
 
+// Thrown when the server answers 401 because the session expired or the user logged out elsewhere.
+class LoginRequiredError extends Error {
+	name = 'LoginRequiredError';
+}
+
+let redirectingToLogin = false;
+
+function redirectToLogin() {
+	if (redirectingToLogin) return;
+	redirectingToLogin = true;
+	window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+}
+
+// Sends the browser to the login page if the response says the session is gone.
+function checkLoginRequired(response) {
+	if (response.status === 401) {
+		redirectToLogin();
+		throw new LoginRequiredError('Please log in again.');
+	}
+}
+
 // Parses a JSON response and throws an Error carrying the server's message if the request failed.
 async function readJsonResponse(response) {
+	checkLoginRequired(response);
 	let data = null;
 	try {
 		data = await response.json();
@@ -74,6 +99,7 @@ async function readJsonResponse(response) {
 
 async function refreshCsrfToken() {
 	const response = await fetch('/api/csrf-token', { cache: 'no-store' });
+	checkLoginRequired(response);
 	if (!response.ok) {
 		throw new Error(`CSRF token refresh failed: ${response.status}`);
 	}
@@ -85,7 +111,10 @@ async function refreshCsrfToken() {
 
 	csrfToken = data.csrf_token;
 	csrfTokenMeta.content = csrfToken;
-	csrfTokenInput.value = csrfToken;
+	// Upload and logout forms both carry the token.
+	document.querySelectorAll('input[name="csrf_token"]').forEach(input => {
+		input.value = csrfToken;
+	});
 }
 
 function refreshCsrfTokenSafely() {
@@ -310,6 +339,7 @@ function handleUpload() {
 function refreshFileList() {
 	return fetch('/?partial=1', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
 		.then(async response => {
+			checkLoginRequired(response);
 			if (response.status === 503) {
 				await readJsonResponse(response);
 			}

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>File Upload - Log in</title>
+	<link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+	<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+	<form method="POST" action="{{ url_for('login') }}" class="login-form">
+		<h2><span class="material-icons" aria-hidden="true">lock</span> Log in</h2>
+		{% if error %}
+		<p class="login-error" role="alert">{{ error }}</p>
+		{% endif %}
+		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+		<input type="hidden" name="next" value="{{ next_url }}">
+		<label for="username">Username</label>
+		<input type="text" id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+		<label for="password">Password</label>
+		<input type="password" id="password" name="password" autocomplete="current-password" required>
+		<button type="submit"><span class="material-icons" aria-hidden="true">login</span> Log in</button>
+	</form>
+</body>
+
+</html>

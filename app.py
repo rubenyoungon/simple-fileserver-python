@@ -1,10 +1,12 @@
-from flask import Flask, request, send_file, send_from_directory, render_template, redirect, url_for, jsonify, make_response
+from flask import Flask, request, send_file, send_from_directory, render_template, redirect, url_for, jsonify, make_response, session
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 from werkzeug.exceptions import HTTPException, BadRequest
 import secrets
 import os
+import sys
 import tempfile
 import zipfile
+from datetime import timedelta
 from email.utils import formatdate
 
 from utils.utils import (
@@ -13,12 +15,30 @@ from utils.utils import (
     start_background_deletion, get_deletion_status, is_deletion_in_progress,
     ALLOWED_EXTENSIONS, is_allowed_file, get_upload_path
 )
+from utils.auth import (
+    USERNAME_ENV, PASSWORD_HASH_ENV, LoginThrottle,
+    load_credentials, credentials_fingerprint, verify_credentials, safe_next_url
+)
+
+CREDENTIALS = load_credentials()
+if CREDENTIALS is None:
+    sys.exit(
+        f"Login is not configured: set {USERNAME_ENV} and {PASSWORD_HASH_ENV}.\n"
+        "Generate the hash with: python -m utils.auth"
+    )
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY") or secrets.token_hex(32)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not app.secret_key:
+    app.secret_key = secrets.token_hex(32)
+    app.logger.warning("FLASK_SECRET_KEY is not set: everyone is logged out whenever the server restarts.")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-CSRFProtect(app)
+# Set FILESERVER_SECURE_COOKIES=1 when the site is served over HTTPS.
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FILESERVER_SECURE_COOKIES") == "1"
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
+
+login_throttle = LoginThrottle()
 
 UPLOAD_FOLDER = './uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -31,9 +51,30 @@ def wants_json() -> bool:
     return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
 
-# Endpoints that keep working while "Delete All" runs: clients need them to follow progress.
-BUSY_EXEMPT_ENDPOINTS = {"static", "deletion_status", "get_csrf_token"}
+# Endpoints that keep working while "Delete All" runs: clients need them to follow progress (or to log in).
+BUSY_EXEMPT_ENDPOINTS = {"static", "deletion_status", "get_csrf_token", "login", "logout"}
 BUSY_RETRY_AFTER_SECONDS = 2
+
+# Endpoints reachable without logging in. static/ only holds the app's own CSS, JS and icons.
+PUBLIC_ENDPOINTS = {"static", "login"}
+
+
+def is_logged_in() -> bool:
+    return session.get("auth") == credentials_fingerprint(CREDENTIALS[1])
+
+
+# Registered before reject_while_deleting so logged-out visitors can't watch deletion progress either.
+@app.before_request
+def require_login():
+    if request.endpoint in PUBLIC_ENDPOINTS or is_logged_in():
+        return None
+    if wants_json() or request.path.startswith("/api/") or request.method != "GET":
+        return jsonify({"success": False, "login_required": True, "error": "Please log in again."}), 401
+    return redirect(url_for("login", next=request.full_path.rstrip("?")))
+
+
+# Initialised after require_login so a logged-out request gets 401, not a missing-CSRF-token error.
+CSRFProtect(app)
 
 
 @app.before_request
@@ -68,6 +109,45 @@ def handle_unexpected_exception(error):
     if wants_json():
         return jsonify({"success": False, "error": f"Internal server error: {error}"}), 500
     return "Internal server error", 500
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    next_url = safe_next_url(request.values.get("next"), url_for("upload"))
+    if request.method == "GET" and is_logged_in():
+        return redirect(next_url)
+
+    error = None
+    status = 200
+    if request.method == "POST":
+        address = request.remote_addr or "unknown"
+        retry_after = login_throttle.retry_after(address)
+        if retry_after:
+            error = f"Too many failed attempts. Try again in {(retry_after + 59) // 60} minute(s)."
+            status = 429
+        elif verify_credentials(CREDENTIALS, request.form.get("username", ""), request.form.get("password", "")):
+            login_throttle.reset(address)
+            session.clear()  # Fresh session (and CSRF token) for the logged-in user.
+            session.permanent = True
+            session["auth"] = credentials_fingerprint(CREDENTIALS[1])
+            return redirect(next_url)
+        else:
+            login_throttle.record_failure(address)
+            app.logger.warning("Failed login attempt from %s", address)
+            error = "Invalid username or password."
+            status = 401
+
+    response = make_response(render_template("login.html", error=error, next_url=next_url), status)
+    response.headers["Cache-Control"] = "no-store"
+    if status == 429:
+        response.headers["Retry-After"] = str(retry_after)
+    return response
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -188,7 +268,8 @@ def files(filename):
     response.headers["Last-Modified"] = formatdate(stat_result.st_mtime, usegmt=True)
     response.headers["ETag"] = f'"{stat_result.st_mtime_ns}-{stat_result.st_size}"'
     response.headers["Accept-Ranges"] = "bytes"
-    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    # private: files require a login, so shared caches and proxies must not store them.
+    response.headers["Cache-Control"] = "private, max-age=31536000, immutable"
     # Uploads are served inline, so stop browsers from sniffing them into e.g. HTML.
     # Content-Disposition is set (quoted and RFC 5987-encoded) by send_from_directory.
     response.headers["X-Content-Type-Options"] = "nosniff"

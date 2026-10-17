@@ -14,6 +14,11 @@
 		<span class="material-icons" aria-hidden="true">storage</span> Free: <span id="freeSpace">{{ disk_space.free }}</span> / {{ disk_space.total }}
 	</div>
 
+	<form method="POST" action="{{ url_for('logout') }}" class="logout-form">
+		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+		<button type="submit" class="cancel-btn"><span class="material-icons" aria-hidden="true">logout</span> Log out</button>
+	</form>
+
 	<h2><span class="material-icons" aria-hidden="true">folder_open</span> File Upload & Image Preview</h2>
 	<form method="POST" enctype="multipart/form-data" id="uploadForm">
 		<label class="drop-zone" id="dropZone" for="fileInput">
