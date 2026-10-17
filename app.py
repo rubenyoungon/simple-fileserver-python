@@ -13,7 +13,7 @@ from utils.utils import (
     get_files_grouped_by_date, format_date_header, save_uploaded_file,
     start_disk_space_monitoring, get_disk_space_info,
     start_background_deletion, get_deletion_status, is_deletion_in_progress,
-    ALLOWED_EXTENSIONS, is_allowed_file, get_upload_path
+    ALLOWED_EXTENSIONS, is_allowed_file, get_upload_path, format_bytes
 )
 from utils.auth import (
     USERNAME_ENV, PASSWORD_HASH_ENV, LoginThrottle,
@@ -194,14 +194,15 @@ def upload():
 
     grouped_files = get_files_grouped_by_date(UPLOAD_FOLDER)
     file_count = sum(len(files) for files in grouped_files.values())
-    
+    total_size = format_bytes(sum(file['size'] for files in grouped_files.values() for file in files))
+
     accept = ",".join(ALLOWED_EXTENSIONS)
 
     if request.args.get('partial'):
-        return render_template("index.html", grouped_files=grouped_files, file_count=file_count, 
+        return render_template("index.html", grouped_files=grouped_files, file_count=file_count, total_size=total_size,
                              disk_space=get_disk_space_info(), format_date_header=format_date_header, partial=True)
 
-    return render_template("index.html", grouped_files=grouped_files, file_count=file_count, 
+    return render_template("index.html", grouped_files=grouped_files, file_count=file_count, total_size=total_size,
                          disk_space=get_disk_space_info(), format_date_header=format_date_header, accept=accept)
 
 
