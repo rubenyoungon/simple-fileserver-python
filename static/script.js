@@ -42,6 +42,11 @@ function describeError(error) {
 	return error.message || String(error);
 }
 
+// Thrown when the server answers 503 because "Delete All" is running.
+class ServerBusyError extends Error {
+	name = 'ServerBusyError';
+}
+
 // Parses a JSON response and throws an Error carrying the server's message if the request failed.
 async function readJsonResponse(response) {
 	let data = null;
@@ -51,6 +56,10 @@ async function readJsonResponse(response) {
 		// Response body was not JSON (e.g. an HTML error page from a proxy).
 	}
 
+	if (response.status === 503 && data && data.busy) {
+		showServerBusy();
+		throw new ServerBusyError(data.error);
+	}
 	if (!response.ok || (data && data.success === false)) {
 		const fallback = response.status === 413
 			? 'The upload is too large for the server to accept.'
@@ -299,8 +308,11 @@ function handleUpload() {
 }
 
 function refreshFileList() {
-	return fetch('/?partial=1')
-		.then(response => {
+	return fetch('/?partial=1', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+		.then(async response => {
+			if (response.status === 503) {
+				await readJsonResponse(response);
+			}
 			if (!response.ok) {
 				throw new Error(`Server responded with ${response.status}${response.statusText ? ' ' + response.statusText : ''}.`);
 			}
@@ -313,6 +325,7 @@ function refreshFileList() {
 		})
 		.catch(error => {
 			console.error('File list refresh error:', error);
+			if (error instanceof ServerBusyError) return;
 			showErrorDialog('Failed to refresh files', describeError(error));
 		});
 }
@@ -325,6 +338,7 @@ function updateDiskSpace() {
 		})
 		.catch(error => {
 			console.error('Disk space update error:', error);
+			if (error instanceof ServerBusyError) return;
 			showErrorDialog('Failed to update disk space', describeError(error));
 		});
 }
@@ -383,47 +397,155 @@ async function deleteFile(filename) {
 }
 
 async function deleteAllFiles() {
-	if (await showConfirmDialog('Are you sure you want to delete all files? This action cannot be undone.')) {
-		const deleteBtn = document.getElementById('deleteAllBtn');
-		deleteBtn.disabled = true;
-		deleteBtn.querySelector('.button-label').textContent = 'Deleting...';
+	if (!await showConfirmDialog('Are you sure you want to delete all files? This action cannot be undone.')) {
+		return;
+	}
 
-		fetch('/delete-all', {
-			method: 'POST',
-			headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken }
-		})
-			.then(readJsonResponse)
-			.then(() => pollDeletionStatus())
-			.catch(err => {
-				console.error('Delete all error:', err);
-				showErrorDialog('Failed to delete all files', describeError(err));
-				deleteBtn.disabled = false;
-				deleteBtn.querySelector('.button-label').textContent = 'Delete All';
-			});
+	const deleteBtn = document.getElementById('deleteAllBtn');
+	deleteBtn.disabled = true;
+	deletingLocally = true;
+	showBusyDialog('Deleting files...', 'Starting...');
+
+	fetch('/delete-all', {
+		method: 'POST',
+		headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken }
+	})
+		.then(readJsonResponse)
+		.then(() => scheduleDeletionStatusCheck(0))
+		.catch(err => {
+			console.error('Delete all error:', err);
+			deletingLocally = false;
+			deleteBtn.disabled = false;
+			if (err instanceof ServerBusyError) {
+				// Someone else started a deletion first: keep showing their progress.
+				showServerBusy();
+				return;
+			}
+			hideBusyDialog();
+			showErrorDialog('Failed to delete all files', describeError(err));
+		});
+}
+
+// Loading dialog shown while "Delete All" runs, both to the user who started it and to everyone else.
+const busyDialog = document.getElementById('busyDialog');
+const busyDialogTitle = document.getElementById('busyDialogTitle');
+const busyDialogMessage = document.getElementById('busyDialogMessage');
+const busyDialogProgress = document.getElementById('busyDialogProgress');
+const successDialog = document.getElementById('successDialog');
+const successDialogTitleText = document.getElementById('successDialogTitleText');
+const successDialogMessage = document.getElementById('successDialogMessage');
+const successDialogClose = document.getElementById('successDialogClose');
+
+const IDLE_STATUS_INTERVAL = 3000;
+const BUSY_STATUS_INTERVAL = 1000;
+const FAILED_STATUS_RETRY = 2000;
+let deletingLocally = false;
+let busyActive = false;
+let deletionStatusTimer = null;
+
+// The dialog cannot be dismissed while the server is busy.
+busyDialog.addEventListener('cancel', event => event.preventDefault());
+busyDialog.addEventListener('close', () => {
+	if (busyActive) {
+		busyDialog.showModal();
+	}
+});
+
+function showBusyDialog(title, message) {
+	busyActive = true;
+	busyDialogTitle.textContent = title;
+	busyDialogMessage.textContent = message;
+	busyDialogProgress.removeAttribute('value');
+	if (!busyDialog.open) {
+		busyDialog.showModal();
 	}
 }
 
-function pollDeletionStatus() {
-	const deleteBtn = document.getElementById('deleteAllBtn');
+function hideBusyDialog() {
+	busyActive = false;
+	busyDialog.close();
+}
 
-	fetch('/api/deletion-status')
+function showServerBusy() {
+	if (!busyActive) {
+		showBusyDialog('Server busy', 'All files are being deleted. Please wait...');
+	}
+	scheduleDeletionStatusCheck(BUSY_STATUS_INTERVAL);
+}
+
+function showDeletionProgress(status) {
+	if (deletingLocally) {
+		showBusyDialog('Deleting files...', status.total > 0
+			? `${status.deleted} of ${status.total} files deleted`
+			: 'Starting...');
+	} else {
+		showBusyDialog('Server busy', status.total > 0
+			? `All files are being deleted (${status.deleted} of ${status.total}). Please wait...`
+			: 'All files are being deleted. Please wait...');
+	}
+	if (status.total > 0) {
+		busyDialogProgress.value = Math.round((status.deleted / status.total) * 100);
+	}
+}
+
+async function finishDeletion(status) {
+	const startedHere = deletingLocally;
+	deletingLocally = false;
+	hideBusyDialog();
+	await refreshFileList();
+
+	if (!startedHere) {
+		return;
+	}
+	if (status.error) {
+		showErrorDialog('Deletion encountered an error', status.error);
+	} else if (status.deleted < status.total) {
+		const failed = status.total - status.deleted;
+		showErrorDialog('Some files were not deleted', `Could not delete ${failed} of ${status.total} file(s). They may be in use; try again.`);
+	} else {
+		successDialogTitleText.textContent = 'All files deleted';
+		successDialogMessage.textContent = status.total === 1
+			? '1 file was deleted.'
+			: `${status.total} files were deleted.`;
+		successDialog.showModal();
+		successDialogClose.focus();
+	}
+}
+
+function scheduleDeletionStatusCheck(delay) {
+	clearTimeout(deletionStatusTimer);
+	deletionStatusTimer = setTimeout(checkDeletionStatus, delay);
+}
+
+// Polls slowly while idle so other users notice a deletion, and quickly while one is running.
+function checkDeletionStatus() {
+	if (document.hidden && !busyActive) {
+		// Resumed by the visibilitychange listener.
+		return;
+	}
+
+	fetch('/api/deletion-status', { cache: 'no-store' })
 		.then(readJsonResponse)
 		.then(async status => {
 			if (status.in_progress) {
-				const percent = status.total > 0 ? Math.round((status.deleted / status.total) * 100) : 0;
-				deleteBtn.querySelector('.button-label').textContent = `Deleting... (${percent}%)`;
-				setTimeout(pollDeletionStatus, 1000);
-			} else {
-				if (status.error) {
-					showErrorDialog('Deletion encountered an error', status.error);
-				}
-				await refreshFileList();
-				deleteBtn.querySelector('.button-label').textContent = 'Delete All';
-				// Button will be disabled by refreshFileList if no files left
+				showDeletionProgress(status);
+				scheduleDeletionStatusCheck(BUSY_STATUS_INTERVAL);
+				return;
 			}
+			if (busyActive || deletingLocally) {
+				await finishDeletion(status);
+			}
+			scheduleDeletionStatusCheck(IDLE_STATUS_INTERVAL);
 		})
 		.catch(err => {
 			console.error('Status check error:', err);
-			setTimeout(pollDeletionStatus, 2000);
+			scheduleDeletionStatusCheck(busyActive ? FAILED_STATUS_RETRY : IDLE_STATUS_INTERVAL);
 		});
 }
+
+document.addEventListener('visibilitychange', () => {
+	if (!document.hidden) {
+		scheduleDeletionStatusCheck(0);
+	}
+});
+scheduleDeletionStatusCheck(0);

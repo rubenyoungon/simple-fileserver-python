@@ -86,6 +86,21 @@
 		</form>
 	</dialog>
 
+	<dialog id="busyDialog" class="confirm-dialog busy-dialog" aria-labelledby="busyDialogTitle" aria-describedby="busyDialogMessage">
+		<div class="spinner" aria-hidden="true"></div>
+		<h3 id="busyDialogTitle">Deleting files...</h3>
+		<p id="busyDialogMessage" role="status" aria-live="polite"></p>
+		<progress id="busyDialogProgress" max="100"></progress>
+	</dialog>
+
+	<dialog id="successDialog" class="confirm-dialog success-dialog" aria-labelledby="successDialogTitle" aria-describedby="successDialogMessage">
+		<h3 id="successDialogTitle" class="success-dialog-title"><span class="material-icons" aria-hidden="true">check_circle</span> <span id="successDialogTitleText">Done</span></h3>
+		<p id="successDialogMessage"></p>
+		<form method="dialog" class="confirm-dialog-actions">
+			<button type="submit" id="successDialogClose" class="cancel-btn">OK</button>
+		</form>
+	</dialog>
+
 	<script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 

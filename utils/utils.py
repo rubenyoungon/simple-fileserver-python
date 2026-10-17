@@ -160,14 +160,10 @@ def get_disk_space_info():
 
 
 def perform_background_deletion(upload_dir: str):
-    """Background task to delete all files with retries for busy files"""
-    global deletion_status
-    
-    with deletion_lock:
-        if deletion_status["in_progress"]:
-            return
-        deletion_status = {"in_progress": True, "deleted": 0, "total": 0, "error": None}
+    """Background task to delete all files with retries for busy files.
 
+    Expects deletion_status["in_progress"] to already be claimed by start_background_deletion.
+    """
     try:
         files = [f for f in os.listdir(upload_dir) if os.path.isfile(os.path.join(upload_dir, f))]
         deletion_status["total"] = len(files)
@@ -183,11 +179,26 @@ def perform_background_deletion(upload_dir: str):
         deletion_status["in_progress"] = False
 
 
-def start_background_deletion(upload_dir: str):
-    """Start the background thread for deleting all files"""
+def start_background_deletion(upload_dir: str) -> bool:
+    """Start the background thread for deleting all files.
+
+    Returns False if a deletion is already running. The busy flag is set before this returns,
+    so requests arriving right after the delete-all call already see the server as busy.
+    """
+    global deletion_status
+
+    with deletion_lock:
+        if deletion_status["in_progress"]:
+            return False
+        deletion_status = {"in_progress": True, "deleted": 0, "total": 0, "error": None}
+
     thread = threading.Thread(target=perform_background_deletion, args=(upload_dir,), daemon=True)
     thread.start()
-    return thread
+    return True
+
+
+def is_deletion_in_progress() -> bool:
+    return deletion_status["in_progress"]
 
 
 def _delete_file_with_retries(file_path: str, filename: str, max_retries: int = 5) -> bool:

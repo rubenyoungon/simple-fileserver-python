@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>File Upload - Busy</title>
+	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+	<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+	<div class="busy-page" role="status" aria-live="polite">
+		<div class="spinner" aria-hidden="true"></div>
+		<h2>Server busy</h2>
+		<p>{{ message }}</p>
+		<p class="busy-page-hint">This page will reload automatically.</p>
+	</div>
+
+	<script>
+		// Reload once the deletion finishes; the server answers 503 to everything else until then.
+		function checkDeletionStatus() {
+			fetch('/api/deletion-status', { cache: 'no-store' })
+				.then(response => response.json())
+				.then(status => {
+					if (status.in_progress) {
+						setTimeout(checkDeletionStatus, 1000);
+					} else {
+						window.location.reload();
+					}
+				})
+				.catch(() => setTimeout(checkDeletionStatus, 2000));
+		}
+		setTimeout(checkDeletionStatus, 1000);
+	</script>
+</body>
+
+</html>

@@ -10,7 +10,7 @@ from email.utils import formatdate
 from utils.utils import (
     get_files_grouped_by_date, format_date_header, save_uploaded_file,
     start_disk_space_monitoring, get_disk_space_info,
-    start_background_deletion, get_deletion_status,
+    start_background_deletion, get_deletion_status, is_deletion_in_progress,
     ALLOWED_EXTENSIONS, is_allowed_file, get_upload_path
 )
 
@@ -29,6 +29,29 @@ disk_space_thread = start_disk_space_monitoring(UPLOAD_FOLDER)
 def wants_json() -> bool:
     """True for requests made by script.js, which expect JSON instead of HTML error pages."""
     return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+
+# Endpoints that keep working while "Delete All" runs: clients need them to follow progress.
+BUSY_EXEMPT_ENDPOINTS = {"static", "deletion_status", "get_csrf_token"}
+BUSY_RETRY_AFTER_SECONDS = 2
+
+
+@app.before_request
+def reject_while_deleting():
+    """Answer 503 Service Unavailable (with Retry-After) while all files are being deleted."""
+    if not is_deletion_in_progress() or request.endpoint in BUSY_EXEMPT_ENDPOINTS:
+        return None
+
+    message = "The server is busy deleting all files. Please try again shortly."
+    if wants_json() or request.path.startswith("/api/") or request.method != "GET":
+        response = jsonify({"success": False, "busy": True, "error": message})
+    else:
+        # Browsers opening the site get a loading page that reloads itself once deletion is done.
+        response = make_response(render_template("busy.html", message=message))
+    response.status_code = 503
+    response.headers["Retry-After"] = str(BUSY_RETRY_AFTER_SECONDS)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.errorhandler(HTTPException)
@@ -118,7 +141,9 @@ def get_csrf_token():
 @app.route("/api/deletion-status", methods=["GET"])
 def deletion_status():
     """API endpoint to get current deletion status"""
-    return jsonify(get_deletion_status())
+    response = jsonify(get_deletion_status())
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.route("/download-all", methods=["GET"])
@@ -188,7 +213,8 @@ def delete_file(filename):
 @app.route("/delete-all", methods=["POST"])
 def delete_all_files():
     try:
-        start_background_deletion(UPLOAD_FOLDER)
+        if not start_background_deletion(UPLOAD_FOLDER):
+            return {"success": False, "busy": True, "error": "A deletion is already in progress."}, 409
         return {"success": True}, 202  # 202 Accepted
     except Exception as e:
         return {"success": False, "error": str(e)}, 500
