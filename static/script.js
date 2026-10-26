@@ -336,6 +336,14 @@ function handleUpload() {
 		});
 }
 
+function syncDeleteAllButton() {
+	const fileCount = document.querySelectorAll('#fileListContainer .file-item').length;
+	document.getElementById('deleteAllBtn').disabled = fileCount === 0;
+	return fileCount;
+}
+
+syncDeleteAllButton();
+
 function refreshFileList() {
 	return fetch('/?partial=1', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
 		.then(async response => {
@@ -350,6 +358,7 @@ function refreshFileList() {
 		})
 		.then(html => {
 			document.getElementById('fileListWrapper').innerHTML = html;
+			syncDeleteAllButton();
 			alignFileNamesByRow();
 			return updateDiskSpace();
 		})
@@ -427,7 +436,10 @@ async function deleteFile(filename) {
 }
 
 async function deleteAllFiles() {
-	if (!await showConfirmDialog('Are you sure you want to delete all files? This action cannot be undone.')) {
+	const fileCount = syncDeleteAllButton();
+	if (fileCount === 0) return;
+	const fileLabel = fileCount === 1 ? 'file' : 'files';
+	if (!await showConfirmDialog(`Are you sure you want to delete all ${fileCount} ${fileLabel}? This action cannot be undone.`)) {
 		return;
 	}
 
@@ -445,7 +457,7 @@ async function deleteAllFiles() {
 		.catch(err => {
 			console.error('Delete all error:', err);
 			deletingLocally = false;
-			deleteBtn.disabled = false;
+			syncDeleteAllButton();
 			if (err instanceof ServerBusyError) {
 				// Someone else started a deletion first: keep showing their progress.
 				showServerBusy();

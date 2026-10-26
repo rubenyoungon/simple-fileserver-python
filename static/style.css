@@ -367,6 +367,12 @@ a:hover {
 	background: #6e1917;
 	color: #cfcfcf;
 }
+.delete-btn:disabled,
+.delete-btn:disabled:hover {
+	background: #3b4454;
+	color: #b8c2cc;
+	cursor: not-allowed;
+}
 
 .download-btn {
 	background: #185f2a;
