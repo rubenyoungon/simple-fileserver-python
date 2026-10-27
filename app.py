@@ -11,7 +11,6 @@ from email.utils import formatdate
 
 from utils.utils import (
     get_files_grouped_by_date, format_date_header, save_uploaded_file,
-    start_disk_space_monitoring, get_disk_space_info,
     start_background_deletion, get_deletion_status, is_deletion_in_progress,
     ALLOWED_EXTENSIONS, is_allowed_file, get_upload_path, format_bytes
 )
@@ -43,8 +42,6 @@ login_throttle = LoginThrottle()
 UPLOAD_FOLDER = './uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Start disk space monitoring
-disk_space_thread = start_disk_space_monitoring(UPLOAD_FOLDER)
 
 def wants_json() -> bool:
     """True for requests made by script.js, which expect JSON instead of HTML error pages."""
@@ -200,16 +197,10 @@ def upload():
 
     if request.args.get('partial'):
         return render_template("index.html", grouped_files=grouped_files, file_count=file_count, total_size=total_size,
-                             disk_space=get_disk_space_info(), format_date_header=format_date_header, partial=True)
+                             format_date_header=format_date_header, partial=True)
 
     return render_template("index.html", grouped_files=grouped_files, file_count=file_count, total_size=total_size,
-                         disk_space=get_disk_space_info(), format_date_header=format_date_header, accept=accept)
-
-
-@app.route("/api/disk-space", methods=["GET"])
-def get_disk_space():
-    """API endpoint to get current disk space"""
-    return jsonify(get_disk_space_info())
+                         format_date_header=format_date_header, accept=accept)
 
 
 @app.route("/api/csrf-token", methods=["GET"])

@@ -1,12 +1,8 @@
 import os
-import shutil
 import threading
 import time
 from datetime import datetime, timedelta
 from collections import defaultdict
-
-# Global variable to store disk space info
-disk_space_info = {"free": "Calculating...", "total": "Calculating...", "percent": 0}
 
 # Global state for deletion process
 deletion_status = {"in_progress": False, "deleted": 0, "total": 0, "error": None}
@@ -44,10 +40,6 @@ def get_upload_path(upload_dir: str, filename: str) -> str | None:
     return path
 
 
-# Configuration for update interval (in seconds)
-DISK_SPACE_UPDATE_INTERVAL = 60  # Update every 60 seconds - customize this as needed
-
-
 def format_bytes(bytes):
     """Convert bytes to human readable format"""
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
@@ -55,22 +47,6 @@ def format_bytes(bytes):
             return f"{bytes:.2f} {unit}"
         bytes /= 1024.0
     return f"{bytes:.2f} TB"
-
-
-def update_disk_space():
-    """Background task to update disk space information"""
-    global disk_space_info
-    while True:
-        try:
-            disk_usage = shutil.disk_usage(UPLOAD_FOLDER)
-            disk_space_info = {
-                "free": format_bytes(disk_usage.free),
-                "total": format_bytes(disk_usage.total),
-                "percent": round((disk_usage.used / disk_usage.total) * 100, 1)
-            }
-        except Exception as e:
-            print(f"Error updating disk space: {e}")
-        time.sleep(DISK_SPACE_UPDATE_INTERVAL)
 
 
 def get_files_grouped_by_date(upload_dir: str) -> dict[str, list[dict]]:
@@ -142,22 +118,6 @@ def save_uploaded_file(upload_dir: str, file) -> str:
         raise ValueError(f"Invalid file name: {file.filename}")
     file.save(target_path)
     return target_filename
-
-
-def start_disk_space_monitoring(upload_folder: str):
-    """Start the background thread for monitoring disk space"""
-    global UPLOAD_FOLDER
-    UPLOAD_FOLDER = upload_folder
-    
-    # Start the background thread
-    disk_space_thread = threading.Thread(target=update_disk_space, daemon=True)
-    disk_space_thread.start()
-    return disk_space_thread
-
-
-def get_disk_space_info():
-    """Get current disk space information"""
-    return disk_space_info
 
 
 def perform_background_deletion(upload_dir: str):

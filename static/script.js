@@ -360,25 +360,11 @@ function refreshFileList() {
 			document.getElementById('fileListWrapper').innerHTML = html;
 			syncDeleteAllButton();
 			alignFileNamesByRow();
-			return updateDiskSpace();
 		})
 		.catch(error => {
 			console.error('File list refresh error:', error);
 			if (error instanceof ServerBusyError) return;
 			showErrorDialog('Failed to refresh files', describeError(error));
-		});
-}
-
-function updateDiskSpace() {
-	return fetch('/api/disk-space')
-		.then(readJsonResponse)
-		.then(data => {
-			document.getElementById('freeSpace').textContent = data.free;
-		})
-		.catch(error => {
-			console.error('Disk space update error:', error);
-			if (error instanceof ServerBusyError) return;
-			showErrorDialog('Failed to update disk space', describeError(error));
 		});
 }
 
