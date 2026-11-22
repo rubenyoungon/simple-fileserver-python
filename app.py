@@ -48,6 +48,57 @@ def wants_json() -> bool:
     return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
 
+def _validate_uploads(files):
+    invalid = [file.filename for file in files if get_upload_path(UPLOAD_FOLDER, file.filename) is None]
+    if invalid:
+        raise BadRequest("Invalid file name: " + ", ".join(invalid))
+
+    rejected = [file.filename for file in files if not is_allowed_file(file.filename)]
+    if rejected:
+        raise BadRequest(
+            "Only photos, videos and documents can be uploaded. Not allowed: "
+            + ", ".join(rejected)
+            + "\n\nAllowed types: " + ", ".join(ALLOWED_EXTENSIONS)
+        )
+
+
+def _save_uploads(files):
+    failed = []
+    for file in files:
+        try:
+            save_uploaded_file(UPLOAD_FOLDER, file)
+        except OSError as error:
+            app.logger.exception("Failed to save %s", file.filename)
+            failed.append(f"{file.filename}: {error.strerror or error}")
+    return failed
+
+
+def _upload_json_response(files, failed):
+    if not failed:
+        return jsonify({"success": True})
+
+    saved_count = len(files) - len(failed)
+    message = f"Could not save {len(failed)} of {len(files)} file(s)"
+    if saved_count:
+        message += f" ({saved_count} saved)"
+    message += ".\n" + "\n".join(failed)
+    return jsonify({"success": False, "error": message}), 500
+
+
+def _handle_upload():
+    files = [file for file in request.files.getlist('file') if file and file.filename]
+    if not files:
+        if wants_json():
+            return jsonify({"success": False, "error": "No file was selected."}), 400
+        return redirect(url_for('upload'))
+
+    _validate_uploads(files)
+    failed = _save_uploads(files)
+    if wants_json():
+        return _upload_json_response(files, failed)
+    return redirect(url_for('upload'))
+
+
 # Endpoints that keep working while "Delete All" runs: clients need them to follow progress (or to log in).
 BUSY_EXEMPT_ENDPOINTS = {"static", "deletion_status", "get_csrf_token", "login", "logout"}
 BUSY_RETRY_AFTER_SECONDS = 2
@@ -150,44 +201,7 @@ def logout():
 @app.route("/", methods=["GET", "POST"])
 def upload():
     if request.method == "POST":
-        files = [file for file in request.files.getlist('file') if file and file.filename]
-        if not files:
-            if wants_json():
-                return jsonify({"success": False, "error": "No file was selected."}), 400
-            return redirect(url_for('upload'))
-
-        invalid = [file.filename for file in files if get_upload_path(UPLOAD_FOLDER, file.filename) is None]
-        if invalid:
-            raise BadRequest("Invalid file name: " + ", ".join(invalid))
-
-        rejected = [file.filename for file in files if not is_allowed_file(file.filename)]
-        if rejected:
-            # Reject the whole upload so nothing is half-saved.
-            raise BadRequest(
-                "Only photos, videos and documents can be uploaded. Not allowed: "
-                + ", ".join(rejected)
-                + "\n\nAllowed types: " + ", ".join(ALLOWED_EXTENSIONS)
-            )
-
-        failed = []
-        for file in files:
-            try:
-                save_uploaded_file(UPLOAD_FOLDER, file)
-            except OSError as error:
-                app.logger.exception("Failed to save %s", file.filename)
-                failed.append(f"{file.filename}: {error.strerror or error}")
-
-        if wants_json():
-            if failed:
-                saved_count = len(files) - len(failed)
-                message = f"Could not save {len(failed)} of {len(files)} file(s)"
-                if saved_count:
-                    message += f" ({saved_count} saved)"
-                message += ".\n" + "\n".join(failed)
-                return jsonify({"success": False, "error": message}), 500
-            return jsonify({"success": True})
-
-        return redirect(url_for('upload'))
+        return _handle_upload()
 
     grouped_files = get_files_grouped_by_date(UPLOAD_FOLDER)
     file_count = sum(len(files) for files in grouped_files.values())
