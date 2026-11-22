@@ -227,6 +227,12 @@ def download_all():
     ]
     if not filenames:
         return jsonify({"success": False, "error": "No files to download"}), 404
+    filenames.sort(
+        key=lambda filename: (
+            os.path.getmtime(os.path.join(UPLOAD_FOLDER, filename)),
+            filename,
+        )
+    )
 
     archive = tempfile.SpooledTemporaryFile()
     try:
